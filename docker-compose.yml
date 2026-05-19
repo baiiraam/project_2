@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: food-analyzer-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: foodanalyzer
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - food-analyzer-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d foodanalyzer"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: food-analyzer-api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:password@postgres:5432/foodanalyzer
+      NUTRITION_PROVIDER: ${NUTRITION_PROVIDER:-usda}
+      USDA_API_KEY: ${USDA_API_KEY:-}
+      HTTP_CACHE_ENABLED: "true"
+      HTTP_CACHE_TTL_SECONDS: 86400
+      NUTRITION_CACHE_TTL_SECONDS: 86400
+      LOG_LEVEL: INFO
+      MAX_IMAGE_SIZE_MB: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - food-analyzer-network
+    volumes:
+      - ./vlm_cache.json:/app/vlm_cache.json
+      - ./nutrition_cache.json:/app/nutrition_cache.json
+      - ./.cache:/app/.cache
+      - ./data:/app/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  food-analyzer-network:
+    driver: bridge

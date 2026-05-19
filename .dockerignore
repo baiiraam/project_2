@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv
+venv/
+ENV/
+env/
+
+# Environment files
+.env
+.env.local
+
+# Cache files
+*.sqlite
+*.sqlite3
+vlm_cache.json
+nutrition_cache.json
+.cache/
+__pycache__/
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Tests
+tests/
+.pytest_cache/
+.tox/
+.coverage
+htmlcov/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Data (keep small samples, exclude large uploads)
+data/*.jpg
+data/*.jpeg
+data/*.gif
+!data/*.png

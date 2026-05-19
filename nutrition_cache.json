@@ -1,0 +1,11 @@
+{
+  "rice": {
+    "name": "rice",
+    "kcal_per_100g": 10.0,
+    "protein_g_per_100g": 10.0,
+    "carbs_g_per_100g": 10.0,
+    "fat_g_per_100g": 10.0,
+    "source": "USDA",
+    "timestamp": 1779149274.09184
+  }
+}
