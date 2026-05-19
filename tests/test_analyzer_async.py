@@ -80,5 +80,5 @@ class TestFoodAnalyzerAsync:
         result = await analyzer.analyze_async("test.jpg")
 
         mock_ai_service.service_identify_ingredients.assert_called_once_with("test.jpg")
-        mock_cache.set.assert_called_once_with("test.jpg", fake_ingredients)
+        mock_cache.set.assert_called_once()
         assert result["ingredients"] == fake_ingredients

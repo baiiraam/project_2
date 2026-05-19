@@ -114,11 +114,12 @@ class CachedNutritionProvider(NutritionProvider):
             self.logger.info(f"CACHE HIT (memory): {ingredient_name}")
             return self._cache[normalized]
 
-        # Cache miss - call inner provider
+        # Cache miss - call inner provider with normalized name
         self.logger.info(f"CACHE MISS: {ingredient_name} - calling API")
 
         try:
-            facts = self._inner.lookup(ingredient_name)
+            # FIX: Use normalized name here
+            facts = self._inner.lookup(normalized)  # Changed from ingredient_name
 
             # Store in memory cache
             self._cache[normalized] = facts
@@ -145,8 +146,8 @@ class CachedNutritionProvider(NutritionProvider):
         self.logger.info(f"CACHE MISS: {ingredient_name} - calling API")
 
         try:
-            # Run sync lookup in thread pool
-            facts = await asyncio.to_thread(self._inner.lookup, ingredient_name)
+            # FIX: Use normalized name here too
+            facts = await asyncio.to_thread(self._inner.lookup, normalized)  # Changed
 
             # Store in memory cache
             self._cache[normalized] = facts
