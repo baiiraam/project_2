@@ -93,7 +93,7 @@ class JSONCache(BaseCache):
         logger.info("JSONCache cleared")
 
     def get_stats(self) -> dict:
-        size_mb = 0
+        size_mb = 0.0
         if self.cache_file.exists():
             size_mb = self.cache_file.stat().st_size / (1024 * 1024)
 

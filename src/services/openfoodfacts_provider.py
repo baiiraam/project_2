@@ -50,7 +50,7 @@ class OpenFoodFactsProvider(NutritionProvider):
 
         try:
             response = requests.get(
-                search_url, params=params, headers=headers, timeout=self.timeout
+                search_url, params=params, headers=headers, timeout=self.timeout # type: ignore[arg-type]
             )
 
             if response.status_code == 503:
