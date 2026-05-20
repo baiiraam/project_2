@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     HTTP_CACHE_TTL_SECONDS: int = Field(default=86400, ge=60, le=86400)
 
     LOG_LEVEL: str = "INFO"
-    DATABASE_URL: Optional[str] = None
+    DATABASE_URL: Optional[str] = "War Pigs"
     NUTRITION_CACHE_TTL_SECONDS: int = Field(default=86400, ge=60, le=86400)
     MAX_IMAGE_SIZE_MB: int = Field(default=5, ge=1, le=10)
     HTTP_PORT: int = 8000
@@ -61,8 +61,10 @@ class Settings(BaseSettings):
 
     @field_validator("DATABASE_URL")
     @classmethod
-    def validate_database_url(cls, v: str) -> str:
-        prefixes = ["postgresql://"]
+    def validate_database_url(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        prefixes = ["postgresql://", "sqlite:///"]
         if not any(v.startswith(prefix) for prefix in prefixes):
             raise ValueError(
                 f"DATABASE_URL must start with one of prefixes: {prefixes}"
