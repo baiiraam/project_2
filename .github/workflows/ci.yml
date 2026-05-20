@@ -5,7 +5,6 @@ on:
     branches: [ main, master ]
   push:
     branches: [ main, master ]
-  workflow_dispatch:
 
 jobs:
   lint:
@@ -67,44 +66,44 @@ jobs:
         run: |
           pytest tests/ --cov=src --cov-fail-under=60 --cov-report=term-missing -v
         env:
-          LLM_PROVIDER=openai
-          LLM_MODEL=gpt-4o-mini
-          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-          OPENAI_BASE_URL=https://openrouter.ai/api/v1
+          LLM_PROVIDER: openai
+          LLM_MODEL: gpt-4o-mini
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_BASE_URL: https://openrouter.ai/api/v1
 
 
 
           # Choose one cache backend
-          CACHE_BACKEND=json      # redis, sqlite, or json
+          CACHE_BACKEND: json      # redis, sqlite, or json
 
           # For Redis
-          REDIS_URL=redis://localhost:6379
+          REDIS_URL: redis://localhost:6379
 
           # For SQLite
           # SQLITE_CACHE_PATH=cache.db
 
           # For JSON (existing)
-          JSON_CACHE_MAX_SIZE_MB=100
-          JSON_CACHE_BACKUP_COUNT=3
+          JSON_CACHE_MAX_SIZE_MB: 100
+          JSON_CACHE_BACKUP_COUNT: 3
 
           # --- Nutrition provider ---
-          NUTRITION_PROVIDER=usda
-          USDA_API_KEY=${{ secrets.USDA_API_KEY }}               # free key from https://fdc.nal.usda.gov/api-key-signup
+          NUTRITION_PROVIDER: usda
+          USDA_API_KEY: ${{ secrets.USDA_API_KEY }}               # free key from https://fdc.nal.usda.gov/api-key-signup
 
-          HTTP_CACHE_ENABLED=true
-          HTTP_CACHE_TTL_SECONDS=86400
+          HTTP_CACHE_ENABLED: true
+          HTTP_CACHE_TTL_SECONDS: 86400
 
           # NUTRITION_PROVIDER=mock
           # OPENFOODFACTS_USER_AGENT=AI-Food-Analyzer/1.0 (bayramovb578@gmail.com)
 
           # --- SE-layer settings (you will populate these) ---
-          LOG_LEVEL=INFO
+          LOG_LEVEL: INFO
           # PostgreSQL connection string. For asyncpg, use the postgresql+asyncpg:// scheme.
           # Spin up a local server with docker: `docker run -d --name pg -e POSTGRES_PASSWORD=dev -p 5432:5432 postgres:16`
-          DATABASE_URL=${{ secrets.DATABASE_URL }}
-          NUTRITION_CACHE_TTL_SECONDS=86400
-          MAX_IMAGE_SIZE_MB=5
-          HTTP_PORT=8000
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NUTRITION_CACHE_TTL_SECONDS: 86400
+          MAX_IMAGE_SIZE_MB: 5
+          HTTP_PORT: 8000
 
   docker-build:
     runs-on: ubuntu-latest
@@ -119,7 +118,6 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          dockerfile: Dockerfile.multistage
           push: false
           load: true
           tags: food-analyzer:test
