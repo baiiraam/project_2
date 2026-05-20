@@ -69,7 +69,6 @@ jobs:
         env:
           LLM_PROVIDER: offline
           NUTRITION_PROVIDER: mock
-          DATABASE_URL: sqlite:///:memory:
           CACHE_BACKEND: json
 
   docker-build:
