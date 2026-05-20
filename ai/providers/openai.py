@@ -134,7 +134,7 @@ class OpenAIEmbedding(EmbeddingProvider):
             "text-embedding-3-small": 1536,
             "text-embedding-3-large": 3072,
             "text-embedding-ada-002": 1536,
-        }.get(self.model, 1536)
+        }.get(self.model, 1536) # type: ignore
 
     @property
     def dimension(self) -> int:
@@ -144,7 +144,7 @@ class OpenAIEmbedding(EmbeddingProvider):
         if not text.strip():
             raise ValueError("Cannot embed empty string.")
         try:
-            resp = self._client.embeddings.create(model=self.model, input=text)
+            resp = self._client.embeddings.create(model=self.model, input=text) # type: ignore
         except Exception as e:  # pragma: no cover - network path
             raise ProviderError(f"OpenAI embedding call failed: {e}") from e
         vec = np.asarray(resp.data[0].embedding, dtype=np.float32)
