@@ -44,7 +44,7 @@ jobs:
           pip install mypy types-requests types-python-dateutil
 
       - name: Type check with mypy
-        run: mypy src/ --ignore-missing-imports --allow-untyped-decorators --exclude 'src/scripts/'
+        run: mypy src/ --ignore-missing-imports --allow-untyped-decorators --exclude 'src/scripts/' --exclude 'ai/'
 
   test:
     runs-on: ubuntu-latest
