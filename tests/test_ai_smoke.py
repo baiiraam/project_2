@@ -9,20 +9,18 @@ Add your own tests in tests/test_*.py — these stay as-is.
 
 from __future__ import annotations
 
-
 import pytest
 
 from ai import (
     Ingredient,
-    NutritionFacts,
     Nutrition,
-    identify_ingredients,
+    NutritionFacts,
     compute_totals,
+    identify_ingredients,
 )
 from ai.providers.base import ProviderError
-from ai.vlm import _parse_json
 from ai.schemas import INGREDIENTS_SCHEMA
-
+from ai.vlm import _parse_json
 
 # --- identify_ingredients --------------------------------------------------
 
@@ -134,7 +132,7 @@ def test_ingredient_rejects_empty_name():
 def test_ingredient_is_frozen():
     ing = Ingredient(name="rice", estimated_grams=100, confidence=0.5)
     with pytest.raises(Exception):  # FrozenInstanceError
-        ing.estimated_grams = 200  # type: ignore
+        ing.estimated_grams = 200
 
 
 # --- NutritionFacts.for_grams ---------------------------------------------
