@@ -5,7 +5,7 @@ from typing import Dict, Optional
 from loguru import logger
 
 from ai import compute_totals
-from ai.nutrition import get_nutrition_provider
+from ai.nutrition import NutritionProvider, get_nutrition_provider
 from src.concurrency.pipeline import fetch_all_nutrition_async
 from src.config import get_settings
 from src.services.ai_service import AIService
@@ -35,6 +35,8 @@ class FoodAnalyzer:
         if nutrition_provider is not None:
             self.cached_nutrition_provider = nutrition_provider
         else:
+            # Use a single variable with proper type annotation
+            real_provider: NutritionProvider
             if settings.NUTRITION_PROVIDER == "mock":
                 real_provider = MockNutritionProvider()
             elif settings.NUTRITION_PROVIDER == "openfoodfacts":
@@ -46,12 +48,10 @@ class FoodAnalyzer:
 
             self.cached_nutrition_provider = CachedNutritionProvider(
                 inner_provider=real_provider,
-                ttl_seconds=settings.NUTRITION_CACHE_TTL_SECONDS,
+                ttl_seconds=int(settings.NUTRITION_CACHE_TTL_SECONDS),
                 maxsize=128,
             )
 
-        # Remove the await line - __init__ cannot be async
-        # Redis cache will be initialized lazily when needed
         logger.info("FoodAnalyzer initialized")
 
     # Add a method to get cache (lazy initialization)

@@ -1,10 +1,12 @@
 """VLM cache with persistent storage."""
 
 import hashlib
-from typing import List, Optional, Any
+from typing import List, Optional
+
+from loguru import logger
+
 from ai.schemas import Ingredient
 from src.services.cache_factory import create_cache
-from loguru import logger
 
 
 class VLMCache:
