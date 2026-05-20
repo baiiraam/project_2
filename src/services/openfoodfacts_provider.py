@@ -49,12 +49,7 @@ class OpenFoodFactsProvider(NutritionProvider):
         headers = {"User-Agent": self.user_agent}
 
         try:
-            response = requests.get(
-                search_url,
-                params=params,
-                headers=headers,
-                timeout=self.timeout,  # type: ignore[arg-type]
-            )
+            response = requests.get(search_url,params=params,headers=headers,timeout=self.timeout) # type: ignore[arg-type]
 
             if response.status_code == 503:
                 logger.error(
