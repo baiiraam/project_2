@@ -138,7 +138,7 @@ class TestNutritionCache:
         mock_cache = MockCacheWithExpiry()
         mocker.patch("src.services.cache_factory.create_cache", return_value=mock_cache)
 
-        provider = CachedNutritionProvider(inner_provider=mock_fetcher, ttl_seconds=0.1)
+        provider = CachedNutritionProvider(inner_provider=mock_fetcher, ttl_seconds=1)
 
         provider.lookup("rice")
         assert mock_fetcher.lookup.call_count == 1

@@ -174,73 +174,11 @@ class SQLiteCache(BaseCache):
             return {"type": "sqlite", "total_keys": total, "db_path": self.db_path}
 
 
-class RedisCache(BaseCache):
-    """Redis-based persistent cache."""
-
-    def __init__(self, redis_url: str = "redis://localhost:6379"):
-        self.redis_url = redis_url
-        self._client = None
-        logger.info(f"RedisCache initialized: {redis_url}")
-
-    def _get_client_sync(self):
-        """Get Redis client (sync version for compatibility)."""
-        if not self._client:
-            try:
-                import redis
-
-                self._client = redis.from_url(self.redis_url)
-            except ImportError:
-                logger.error("redis package not installed. Run: uv add redis")
-                raise
-        return self._client
-
-    def get(self, key: str) -> Optional[dict]:
-        import json
-
-        client = self._get_client_sync()
-        value = client.get(key)
-        if value:
-            return json.loads(value)
-        return None
-
-    def set(self, key: str, value: dict, ttl: Optional[int] = None):
-        import json
-
-        client = self._get_client_sync()
-        if ttl:
-            client.setex(key, ttl, json.dumps(value))
-        else:
-            client.set(key, json.dumps(value))
-
-    def delete(self, key: str):
-        client = self._get_client_sync()
-        client.delete(key)
-
-    def clear(self):
-        client = self._get_client_sync()
-        client.flushdb()
-        logger.info("RedisCache cleared")
-
-    def get_stats(self) -> dict:
-        client = self._get_client_sync()
-        info = client.info("stats")
-        return {
-            "type": "redis",
-            "total_keys": client.dbsize(),
-            "hits": info.get("keyspace_hits", 0),
-            "misses": info.get("keyspace_misses", 0),
-            "redis_url": self.redis_url,
-        }
-
 
 def create_cache() -> BaseCache:
     """Factory function to create the appropriate cache backend."""
     backend = (settings.CACHE_BACKEND or "json").lower()
-
-    if backend == "redis":
-        redis_url = settings.REDIS_URL or "redis://localhost:6379"
-        return RedisCache(redis_url)
-    elif backend == "sqlite":
+    if backend == "sqlite":
         return SQLiteCache("cache.db")
     else:  # json (default)
         return JSONCache("persistent_cache.json")

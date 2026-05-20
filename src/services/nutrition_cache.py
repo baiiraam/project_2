@@ -13,7 +13,7 @@ class CachedNutritionProvider(NutritionProvider):
     def __init__(
         self,
         inner_provider: NutritionProvider,
-        ttl_seconds: float = 86400.0,
+        ttl_seconds: int = 86400,
         maxsize: int = 128,
     ):
         self._inner = inner_provider
