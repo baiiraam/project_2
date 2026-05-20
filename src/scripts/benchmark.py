@@ -3,9 +3,10 @@ THIS IS FOR TEST PURPOSE. THE CODE INSIDE NEEDS CHANGING.
 """
 
 import asyncio
-import time
 import random
+import time
 from typing import List
+
 from ai.schemas import NutritionFacts
 
 # Mock nutrition facts (fake data)

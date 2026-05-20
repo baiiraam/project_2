@@ -1,6 +1,7 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict
+from typing import Dict, List
+
 from ai.schemas import Ingredient, NutritionFacts
 
 
