@@ -1,6 +1,6 @@
-from src.config import Settings
 import pytest
 
+from src.config import Settings
 
 # def test_llm_provider_default_is_present():
 #     settings = Settings()

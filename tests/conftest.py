@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import json
-from typing import Any
 import os
+from typing import Any
 
 import pytest
 
-from ai.providers.base import VLMProvider
 from ai.nutrition import NutritionProvider
+from ai.providers.base import VLMProvider
 from ai.schemas import NutritionFacts
 
 
