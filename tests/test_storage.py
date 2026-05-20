@@ -1,6 +1,7 @@
 """Tests for database storage operations."""
 
 import json
+from typing import Dict, Optional
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -136,7 +137,12 @@ class TestDatabaseSave:
             {"name": "rice", "estimated_grams": 100, "confidence": 0.9},
             {"name": "chicken", "estimated_grams": 150, "confidence": 0.85},
         ]
-        totals = {"kcal": 250, "protein_g": 30, "carbs_g": 40, "fat_g": 10}
+        totals: Dict[str, Optional[float]] = {
+            "kcal": 250.0,
+            "protein_g": 30.0,
+            "carbs_g": 40.0,
+            "fat_g": 10.0,
+        }
 
         analysis_id = await Database.save(
             image_path="test.jpg",

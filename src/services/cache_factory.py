@@ -174,7 +174,6 @@ class SQLiteCache(BaseCache):
             return {"type": "sqlite", "total_keys": total, "db_path": self.db_path}
 
 
-
 def create_cache() -> BaseCache:
     """Factory function to create the appropriate cache backend."""
     backend = (settings.CACHE_BACKEND or "json").lower()
