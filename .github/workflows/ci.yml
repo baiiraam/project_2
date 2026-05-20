@@ -5,6 +5,7 @@ on:
     branches: [ main, master ]
   push:
     branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
   lint:
@@ -84,6 +85,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          dockerfile: Dockerfile.multistage
           push: false
           load: true
           tags: food-analyzer:test
