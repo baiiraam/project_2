@@ -100,7 +100,7 @@ class JSONCache(BaseCache):
         return {
             "type": "json",
             "total_keys": len(self._cache),
-            "file_size_mb": round(size_mb, 2), # type: ignore
+            "file_size_mb": round(size_mb, 2),
             "max_size_mb": self.max_size_mb,
             "cache_file": str(self.cache_file),
         }
