@@ -66,9 +66,9 @@ jobs:
         run: |
           pytest tests/ --cov=src --cov-fail-under=60 --cov-report=term-missing -v
         env:
-          LLM_PROVIDER: offline
+          LLM_PROVIDER: openai
           NUTRITION_PROVIDER: mock
-          DATABASE_URL: sqlite:///:memory:
+          DATABASE_URL: "sqlite:///:memory:"
           CACHE_BACKEND: json
 
   docker-build:
