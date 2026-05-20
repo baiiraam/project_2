@@ -1,15 +1,19 @@
-from src.services.ai_service import AIService
-from src.services.vlm_cache import VLMCache
-from src.services.nutrition_cache import CachedNutritionProvider
-from src.config import Settings
+# src/core/analyzer.py
+
+from typing import Dict, Optional
+
+from loguru import logger
+
 from ai import compute_totals
 from ai.nutrition import get_nutrition_provider
-from typing import Optional, Dict
-import logging
 from src.concurrency.pipeline import fetch_all_nutrition_async
-from src.storage.database import Database
-from src.services.openfoodfacts_provider import OpenFoodFactsProvider
+from src.config import get_settings
+from src.services.ai_service import AIService
 from src.services.mock_nutrition_provider import MockNutritionProvider
+from src.services.nutrition_cache import CachedNutritionProvider
+from src.services.openfoodfacts_provider import OpenFoodFactsProvider
+from src.services.vlm_cache import VLMCache
+from src.storage.database import Database
 
 
 class FoodAnalyzer:
@@ -19,17 +23,15 @@ class FoodAnalyzer:
         vlm_cache: Optional[VLMCache] = None,
         nutrition_provider: Optional[CachedNutritionProvider] = None,
     ):
-        settings = Settings()
+        settings = get_settings()
         ttl_seconds_from_settings = settings.NUTRITION_CACHE_TTL_SECONDS
-        self.logger = logging.getLogger(__name__)
         self.ai_service = ai_service if ai_service is not None else AIService()
         self.vlm_cache = (
             vlm_cache
             if vlm_cache is not None
-            else VLMCache(
-                ttl_seconds=ttl_seconds_from_settings, cache_file="vlm_cache.json"
-            )
+            else VLMCache(ttl_seconds=ttl_seconds_from_settings)
         )
+
         if nutrition_provider is not None:
             self.cached_nutrition_provider = nutrition_provider
         else:
@@ -45,12 +47,22 @@ class FoodAnalyzer:
             self.cached_nutrition_provider = CachedNutritionProvider(
                 inner_provider=real_provider,
                 ttl_seconds=settings.NUTRITION_CACHE_TTL_SECONDS,
-                cache_file="nutrition_cache.json",  # Add disk persistence
                 maxsize=128,
             )
-        self.logger.info("FoodAnalyzer initialized")
 
-    # Sync method (existing, unchanged)
+        # Remove the await line - __init__ cannot be async
+        # Redis cache will be initialized lazily when needed
+        logger.info("FoodAnalyzer initialized")
+
+    # Add a method to get cache (lazy initialization)
+    def _get_cache(self):
+        """Lazy initialization of Redis cache."""
+        if not hasattr(self, "_cache"):
+            from src.services.cache_factory import create_cache
+
+            self._cache = create_cache()
+        return self._cache
+
     def analyze(self, image_path: str) -> Dict:
         image_hash = self.vlm_cache.get_hash(image_path)
         res = self.vlm_cache.get(image_hash)
@@ -70,12 +82,13 @@ class FoodAnalyzer:
             "totals": totals,
         }
 
-    # Async method (new)
     async def analyze_async(self, image_path: str) -> Dict:
-        image_hash = self.vlm_cache.get_hash(image_path)
+        image_hash = await self.vlm_cache.get_hash_async(image_path)
         res = self.vlm_cache.get(image_hash)
         if res is None:
-            ingredients = self.ai_service.service_identify_ingredients(image_path)
+            ingredients = await self.ai_service.service_identify_ingredients_async(
+                image_path
+            )
             self.vlm_cache.set(image_hash, ingredients)
         else:
             ingredients = res
@@ -85,15 +98,17 @@ class FoodAnalyzer:
         )
 
         totals = compute_totals(ingredients=ingredients, facts_by_name=facts_by_name)
+
+        # Run sync database save in thread pool to avoid blocking
         try:
             await Database.save(
-                image_path=image_path,
-                ingredients=[ing.model_dump() for ing in ingredients],
-                totals=totals.model_dump(),
-                meal_recognized=len(ingredients) > 0,
+                image_path,
+                [ing.model_dump() for ing in ingredients],
+                totals.model_dump(),
+                len(ingredients) > 0,
             )
         except Exception as e:
-            self.logger.warning(f"Database save failed: {e}")
+            logger.warning(f"Database save failed: {e}")
 
         return {
             "ingredients": ingredients,

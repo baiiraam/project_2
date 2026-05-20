@@ -1,67 +1,76 @@
-import json
-import os
-from cachetools import TTLCache
-from typing import List, Optional
-from ai.schemas import Ingredient
+"""VLM cache with persistent storage."""
+
 import hashlib
+from typing import List, Optional
+
+from loguru import logger
+
+from ai.schemas import Ingredient
+from src.services.cache_factory import create_cache
 
 
 class VLMCache:
-    def __init__(
-        self,
-        ttl_seconds: int = 3600,
-        maxsize: int = 100,
-        cache_file: str = "vlm_cache.json",
-    ):
-        self._cache = TTLCache(maxsize=maxsize, ttl=ttl_seconds)
-        self.cache_file = cache_file
-        self._load_from_disk()
+    """Persistent VLM cache using configured backend."""
 
-    def _load_from_disk(self):
-        """Load cached entries from JSON file."""
-        if os.path.exists(self.cache_file):
-            try:
-                with open(self.cache_file, "r") as f:
-                    data = json.load(f)
-                    for key, value in data.items():
-                        # Convert stored dict back to Ingredient objects
-                        ingredients = [Ingredient(**ing) for ing in value]
-                        self._cache[key] = ingredients
-                print(f"Loaded {len(self._cache)} entries from {self.cache_file}")
-            except Exception as e:
-                print(f"Failed to load cache: {e}")
+    def __init__(self, ttl_seconds: int = 86400):
+        self.ttl = ttl_seconds
+        self._cache = create_cache()
+        logger.info(
+            f"VLMCache initialized with {self._cache.get_stats()['type']} backend"
+        )
 
-    def _save_to_disk(self):
-        """Save cache entries to JSON file."""
-        try:
-            data = {}
-            for key, ingredients in self._cache.items():
-                # Convert Ingredient objects to dicts
-                data[key] = [ing.model_dump() for ing in ingredients]
-            with open(self.cache_file, "w") as f:
-                json.dump(data, f, indent=2)
-        except Exception as e:
-            print(f"Failed to save cache: {e}")
+    def _get_hash(self, image_path: str) -> str:
+        """Generate SHA-256 hash of image content."""
+        sha256 = hashlib.sha256()
+        with open(image_path, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                sha256.update(chunk)
+        return sha256.hexdigest()
 
-    def get(self, image_path: str) -> Optional[List[Ingredient]]:
-        result = self._cache.get(image_path)
-        print(f"VLM Cache get({image_path}) -> {result is not None}")
-        return result
+    async def _get_hash_async(self, image_path: str) -> str:
+        """Generate SHA-256 hash asynchronously."""
+        import aiofiles
 
-    def set(self, image_path: str, ingredients: List[Ingredient]) -> None:
-        print(f"VLM Cache set({image_path}) storing {len(ingredients)} ingredients")
-        self._cache[image_path] = ingredients
-        self._save_to_disk()
+        sha256 = hashlib.sha256()
+        async with aiofiles.open(image_path, "rb") as f:
+            while chunk := await f.read(8192):
+                sha256.update(chunk)
+        return sha256.hexdigest()
 
-    def has(self, image_path: str) -> bool:
-        return image_path in self._cache
+    def get(self, image_hash: str) -> Optional[List[Ingredient]]:
+        """Get cached ingredients by image hash."""
+        cached = self._cache.get(image_hash)
+        if cached:
+            logger.info(f"VLM cache HIT: {image_hash[:16]}...")
+            return [Ingredient(**ing) for ing in cached]
+        logger.info(f"VLM cache MISS: {image_hash[:16]}...")
+        return None
+
+    def set(self, image_hash: str, ingredients: List[Ingredient]) -> None:
+        """Cache ingredients by image hash."""
+        data = [ing.model_dump() for ing in ingredients]
+        self._cache.set(image_hash, data, self.ttl)
+        logger.info(
+            f"VLM cache SET: {image_hash[:16]}... ({len(ingredients)} ingredients)"
+        )
+
+    def has(self, image_hash: str) -> bool:
+        """Check if hash exists in cache."""
+        return self.get(image_hash) is not None
 
     def clear(self) -> None:
+        """Clear entire cache."""
         self._cache.clear()
-        if os.path.exists(self.cache_file):
-            os.remove(self.cache_file)
+        logger.info("VLM cache cleared")
+
+    def get_stats(self) -> dict:
+        """Get cache statistics."""
+        return self._cache.get_stats()
 
     def get_hash(self, image_path: str) -> str:
-        """Generate SHA-256 hash of image content."""
-        with open(image_path, "rb") as f:
-            return hashlib.sha256(f.read()).hexdigest()
+        """Get hash for image (sync version)."""
+        return self._get_hash(image_path)
+
+    async def get_hash_async(self, image_path: str) -> str:
+        """Get hash for image (async version)."""
+        return await self._get_hash_async(image_path)

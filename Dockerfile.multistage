@@ -1,0 +1,91 @@
+# ============================================================
+# STAGE 1: BUILDER
+# ============================================================
+# Purpose: Install dependencies and build wheels
+# This stage can be large and contains build tools
+# ============================================================
+
+FROM python:3.11-slim AS builder
+
+# Set working directory
+WORKDIR /build
+
+# Install build dependencies (these will NOT be in final image)
+# gcc: needed to compile some Python packages
+# libpq-dev: needed for PostgreSQL asyncpg driver
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a virtual environment (isolates our dependencies)
+# This is where all Python packages will be installed
+RUN python -m venv /opt/venv
+
+# Activate virtual environment for all subsequent RUN commands
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy only requirements first (for better Docker layer caching)
+# If requirements don't change, Docker will reuse this cached layer
+COPY requirements.txt .
+
+# Install all Python packages into the virtual environment
+# --no-cache-dir: Don't save pip cache (saves space)
+# --no-compile: Don't compile .pyc files (faster install)
+RUN pip install --no-cache-dir --no-compile -r requirements.txt
+
+# ============================================================
+# STAGE 2: RUNTIME
+# ============================================================
+# Purpose: Create the final, small, production-ready image
+# This stage contains ONLY what's needed to RUN the app
+# ============================================================
+
+FROM python:3.11-slim
+
+# Install ONLY runtime dependencies (NOT build tools)
+# libpq-dev is needed for asyncpg to run
+# curl is for health checks
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the entire virtual environment from builder stage
+# This includes all installed Python packages
+# --from=builder means "take from the first stage"
+COPY --from=builder /opt/venv /opt/venv
+
+# Activate the virtual environment in runtime
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
+
+# Set working directory
+WORKDIR /app
+
+# Create a non-root user for security
+# Running as root is dangerous - if attacker gets in, they have full access
+RUN useradd --create-home --shell /bin/bash appuser && \
+    mkdir -p /app/.cache /app/logs && \
+    chown -R appuser:appuser /app
+
+# Copy application code
+# Copying after creating user ensures correct permissions
+COPY --chown=appuser:appuser ai/ ./ai/
+COPY --chown=appuser:appuser src/ ./src/
+COPY --chown=appuser:appuser data/ ./data/
+
+# Switch to non-root user (security best practice)
+USER appuser
+
+# Health check - Docker will use this to know if container is healthy
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Expose the port
+EXPOSE 8000
+
+# Run the application
+CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,7 +1,7 @@
 # import pytest
 # from unittest.mock import Mock, MagicMock
-from src.core.analyzer import FoodAnalyzer
 from ai.schemas import Ingredient, NutritionFacts
+from src.core.analyzer import FoodAnalyzer
 
 # testing core/analyzer.py
 # when image is cached, analyzer doesn't call AI Service.
@@ -47,7 +47,7 @@ def test_analyzer_doesnt_call_ai_service_when_image_is_cached(mocker):
     # Assertions
     mock_ai_service.service_identify_ingredients.assert_not_called()
     mock_cache.get_hash.assert_called_once_with("test.jpg")
-    mock_cache.get.assert_called_once_with("test_hash_123")
+    mock_cache.get.assert_called_once_with("test_hash_123")  # Uses hash, not path
     assert mock_nutrition.lookup.call_count == 2
     assert res["ingredients"] == fake_ingredients
 
@@ -96,7 +96,9 @@ def test_analyzer_calls_ai_service_when_image_is_not_cached_and_then_caches_the_
     mock_ai_service.service_identify_ingredients.assert_called_once_with("test.jpg")
     mock_cache.get_hash.assert_called_once_with("test.jpg")
     mock_cache.get.assert_called_once_with("test_hash_123")
-    mock_cache.set.assert_called_once_with("test_hash_123", fake_ingredients)
+    mock_cache.set.assert_called_once_with(
+        "test_hash_123", fake_ingredients
+    )  # Uses hash
     assert mock_nutrition.lookup.call_count == 2
     assert res["ingredients"] == fake_ingredients
 

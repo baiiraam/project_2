@@ -1,20 +1,29 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, status, Request
-from fastapi.middleware.cors import CORSMiddleware
-from pathlib import Path
-import time
-import logging
-import tempfile
-import os
+# what to do when we get error 503. We should deal with it in retry logic.
 
-# All imports at top (required by ruff)
-from src.services.http_cache import setup_http_cache, get_cache_stats, clear_cache
-from src.config import Settings
+import os
+import tempfile
+import time
+from pathlib import Path
+
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile, status
+from fastapi.middleware.cors import CORSMiddleware
+from loguru import logger
+
+from ai.providers.base import ProviderError
+from src.api.models import AnalysisResult, IngredientResponse, TotalsResponse
+from src.config import get_settings
 from src.core.analyzer import FoodAnalyzer
 from src.logging_config import setup_logging
-from src.api.models import IngredientResponse, AnalysisResult, TotalsResponse
+
+# All imports at top (required by ruff)
+from src.services.http_cache import clear_cache, get_cache_stats, setup_http_cache
+from src.storage.database import Database
+
+# from src.web.routes import router as web_router
+# from fastapi.staticfiles import StaticFiles
 
 # Initialize cache (after imports)
-settings = Settings()
+settings = get_settings()
 setup_http_cache(
     cache_name="nutrition_api_cache",
     expire_after=settings.NUTRITION_CACHE_TTL_SECONDS,
@@ -24,13 +33,21 @@ setup_http_cache(
 
 setup_logging()
 
-# Rest of your code remains the same...
-
-logger = logging.getLogger(__name__)
-
 app = FastAPI(
     title="AI Food Analyzer API",
-    description="Analyze meal photos for nutrition information",
+    description="""
+    Analyze meal photos for nutrition information.
+
+    ## Features
+    * Identify ingredients from photos
+    * Calculate total calories and macros
+    * Cache results for performance
+    """,
+    version="1.0.0",
+    contact={
+        "name": "Your Name",
+        "email": "your@email.com",
+    },
 )
 
 app.add_middleware(
@@ -40,6 +57,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Mount static files
+# static_dir = Path(__file__).parent.parent / "web" / "static"
+# if static_dir.exists():
+#     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+# app.include_router(web_router)
+
+
+@app.on_event("startup")
+async def startup():
+    """Initialize database pool on startup."""
+    await Database.init_pool()
+    logger.info("Database initialized")
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    """Close database pool on shutdown."""
+    await Database.close()
+    logger.info("Database closed")
 
 
 @app.middleware("http")
@@ -52,7 +91,7 @@ async def log_requests(request: Request, call_next):
         f"Method: {request.method} | "
         f"Path: {request.url.path} | "
         f"Status: {resp.status_code} | "
-        f"Duration: {time_spent:.4f}s | "
+        f"Duration: {time_spent:.4f}s"
     )
     return resp
 
@@ -65,9 +104,37 @@ def read_root():
     return {"message": "AI Food Analyzer API", "version": "1.0.0"}
 
 
+# async version of /health endpoint
+# @app.get("/health")
+# async def read_health():
+#     """Health check endpoint with database status."""
+#     db_ok = False
+#     try:
+#         pool = await Database.get_pool()
+#         async with pool.acquire() as conn:
+#             await conn.execute("SELECT 1")
+#             db_ok = True
+#     except Exception as e:
+#         logger.error(f"Health check failed: {e}")
+
+#     return {
+#         "status": "ok" if db_ok else "degraded",
+#         "database": "connected" if db_ok else "disconnected",
+#         "timestamp": time.time(),
+#         "cache_enabled": settings.HTTP_CACHE_ENABLED
+#     }
+
+
 @app.get("/health")
-def read_health():
-    return {"status": "healthy", "cache_enabled": True}
+async def read_health():
+    """Health check endpoint with database status."""
+    db_ok = await Database.health_check()
+    return {
+        "status": "ok" if db_ok else "degraded",
+        "database": "connected" if db_ok else "disconnected",
+        "timestamp": time.time(),
+        "cache_enabled": settings.HTTP_CACHE_ENABLED,
+    }
 
 
 @app.get("/cache/stats")
@@ -92,7 +159,13 @@ async def clear_http_cache():
         raise HTTPException(status_code=500, detail="Failed to clear cache")
 
 
-@app.post("/analyze", response_model=AnalysisResult)
+@app.post(
+    "/analyze",
+    response_model=AnalysisResult,
+    summary="Analyze a meal photo",
+    description="Upload a JPEG or PNG image of a meal to get nutrition analysis",
+    response_description="Nutritional breakdown of the meal",
+)
 async def analyze(file: UploadFile = File(...)):
     logger.info(
         f"Request received - File: {file.filename}, Size: {file.size}, Type: {file.content_type}"
@@ -165,8 +238,23 @@ async def analyze(file: UploadFile = File(...)):
 
         return response
 
+    except ProviderError as e:
+        error_str = str(e)
+        if "503" in error_str or "UNAVAILABLE" in error_str:
+            logger.warning(f"Service unavailable (503): {e}")
+            raise HTTPException(
+                status_code=503,
+                detail="Service temporarily unavailable. Please try again later.",
+            )
+        else:
+            logger.error(f"Provider error (non-503): {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="External service not working. Please try again later.",
+            )
+
     except Exception as e:
-        logger.exception(f"Error during analysis: {e}")
+        logger.exception(f"Unexpected error during analysis: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
     finally:

@@ -1,12 +1,11 @@
 """Initialize requests-cache without modifying ai/ files."""
 
-import logging
 import os
 from typing import Optional
 
-from src.config import Settings
+from loguru import logger
 
-logger = logging.getLogger(__name__)
+from src.config import get_settings
 
 _cache_initialized = False
 _settings = None
@@ -16,7 +15,7 @@ def _get_settings():
     """Get settings instance (lazy loading)."""
     global _settings
     if _settings is None:
-        _settings = Settings()
+        _settings = get_settings()
     return _settings
 
 
@@ -35,16 +34,13 @@ def setup_http_cache(
 
     settings = _get_settings()
 
-    # Check if caching is enabled via Settings
     if not getattr(settings, "HTTP_CACHE_ENABLED", True):
         logger.info("HTTP cache disabled via HTTP_CACHE_ENABLED=false")
         return
 
-    # Get TTL from Settings if not provided
     if expire_after is None:
         expire_after = getattr(settings, "HTTP_CACHE_TTL_SECONDS", 86400)
 
-    # Try to import requests-cache
     try:
         import requests_cache
     except ImportError:
@@ -55,14 +51,12 @@ def setup_http_cache(
         return
 
     try:
-        # Set cache directory
         if cache_dir:
             os.makedirs(cache_dir, exist_ok=True)
             cache_path = os.path.join(cache_dir, cache_name)
         else:
             cache_path = cache_name
 
-        # Call install_cache with explicit keyword arguments instead of dict
         if allowed_domains:
             requests_cache.install_cache(
                 cache_name=cache_path,
@@ -111,7 +105,6 @@ def get_cache_stats():
             return {"status": "disabled", "reason": "HTTP_CACHE_ENABLED=false"}
         return None
 
-    # Try to import requests-cache
     try:
         import requests_cache
     except ImportError:
@@ -127,7 +120,6 @@ def get_cache_stats():
         settings = _get_settings()
         ttl_seconds = getattr(settings, "HTTP_CACHE_TTL_SECONDS", 86400)
 
-        # Try to get cache size for SQLite backend
         try:
             import sqlite3
         except ImportError:
@@ -160,7 +152,6 @@ def get_cache_stats():
         except AttributeError as e:
             logger.debug(f"Cache session missing expected attribute: {e}")
 
-        # Fallback to basic info
         return {
             "status": "enabled",
             "cache_type": "requests-cache",
@@ -201,7 +192,6 @@ def clear_cache():
     except OSError as e:
         logger.error(f"OS error clearing cache file: {e}")
         return False
-
     except Exception as e:
         logger.error(f"Unexpected error clearing cache: {type(e).__name__}: {e}")
         return False

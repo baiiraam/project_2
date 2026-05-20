@@ -1,6 +1,7 @@
 import pytest
-from src.core.analyzer import FoodAnalyzer
+
 from ai.schemas import Ingredient, NutritionFacts
+from src.core.analyzer import FoodAnalyzer
 
 pytestmark = pytest.mark.asyncio
 
@@ -30,6 +31,9 @@ class TestFoodAnalyzerAsync:
 
         mock_cache = mocker.Mock()
         mock_cache.get.return_value = fake_ingredients
+        # Mock the async get_hash_async method
+        mock_cache.get_hash_async = mocker.AsyncMock(return_value="test_hash_123")
+
         mock_ai_service = mocker.Mock()
         mock_nutrition = mocker.Mock()
         mock_nutrition.async_lookup = mocker.AsyncMock()
@@ -65,8 +69,13 @@ class TestFoodAnalyzerAsync:
 
         mock_cache = mocker.Mock()
         mock_cache.get.return_value = None
+        # Mock the async get_hash_async method
+        mock_cache.get_hash_async = mocker.AsyncMock(return_value="test_hash_123")
+
         mock_ai_service = mocker.Mock()
-        mock_ai_service.service_identify_ingredients.return_value = fake_ingredients
+        mock_ai_service.service_identify_ingredients_async = mocker.AsyncMock(
+            return_value=fake_ingredients
+        )
         mock_nutrition = mocker.Mock()
         mock_nutrition.async_lookup = mocker.AsyncMock()
         mock_nutrition.async_lookup.return_value = fake_facts_rice
@@ -79,6 +88,8 @@ class TestFoodAnalyzerAsync:
 
         result = await analyzer.analyze_async("test.jpg")
 
-        mock_ai_service.service_identify_ingredients.assert_called_once_with("test.jpg")
+        mock_ai_service.service_identify_ingredients_async.assert_called_once_with(
+            "test.jpg"
+        )
         mock_cache.set.assert_called_once()
         assert result["ingredients"] == fake_ingredients

@@ -1,6 +1,7 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, field_validator
 from typing import Any, Optional
+
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -12,9 +13,19 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = None
     GOOGLE_API_KEY: Optional[str] = None
 
-    # Hugging Face settings
-    HUGGINGFACE_API_TOKEN: Optional[str] = None
-    HUGGINGFACE_MODEL: str = "HuggingFaceM4/idefics2-8b"
+    OPENAI_BASE_URL: Optional[str] = None
+
+    CACHE_BACKEND: Optional[str] = None  # redis, sqlite, or json
+
+    # For Redis
+    REDIS_URL: Optional[str] = None
+
+    # For SQLite
+    # SQLITE_CACHE_PATH=cache.db
+
+    # For JSON (existing)
+    JSON_CACHE_MAX_SIZE_MB: Optional[int] = 100
+    JSON_CACHE_BACKUP_COUNT: Optional[int] = 3
 
     NUTRITION_PROVIDER: str = "usda"
     USDA_API_KEY: Optional[str] = None
@@ -51,7 +62,7 @@ class Settings(BaseSettings):
     @field_validator("DATABASE_URL")
     @classmethod
     def validate_database_url(cls, v: str) -> str:
-        prefixes = ["postgresql+asyncpg://", "postgresql+psycopg2://", "postgresql://"]
+        prefixes = ["postgresql://"]
         if not any(v.startswith(prefix) for prefix in prefixes):
             raise ValueError(
                 f"DATABASE_URL must start with one of prefixes: {prefixes}"
@@ -59,8 +70,8 @@ class Settings(BaseSettings):
         return v
 
     def model_post_init(self, _: Any) -> None:
-        if self.LLM_PROVIDER == "offline" and any(
-            [self.ANTHROPIC_API_KEY, self.OPENAI_API_KEY, self.GOOGLE_API_KEY]
+        if self.LLM_PROVIDER == "offline" and (
+            self.ANTHROPIC_API_KEY or self.OPENAI_API_KEY or self.GOOGLE_API_KEY
         ):
             raise ValueError(
                 "LLM_PROVIDER is set to offline but API keys are provided for models. You should either set LLM_PROVIDER to the appropriate model or remove the API keys."
@@ -106,4 +117,11 @@ class Settings(BaseSettings):
             )
 
 
-# sync_url = settings.DATABASE_URL.replace("+asyncpg", "+psycopg2")
+_settings_instance = None
+
+
+def get_settings() -> Settings:
+    global _settings_instance
+    if _settings_instance is None:
+        _settings_instance = Settings()
+    return _settings_instance

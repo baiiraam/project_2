@@ -1,31 +1,57 @@
-import logging
-import sys
-from src.config import Settings
+"""Logging configuration using loguru."""
 
-settings = Settings()
+import sys
+from typing import Optional
+
+from loguru import logger
+
+from src.config import get_settings
+
+settings = get_settings()
 
 
 def setup_logging():
-    """Configure logging based on settings."""
-    log_format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-    date_format = "%Y-%m-%d %H:%M:%S"
+    """Configure loguru logging based on settings."""
 
-    # Get log level from settings (default to INFO)
-    log_level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
+    # Remove default handler
+    logger.remove()
 
-    logging.basicConfig(
+    # Get log level from settings
+    log_level = settings.LOG_LEVEL.upper()
+
+    # Add console handler with formatting
+    logger.add(
+        sys.stdout,
+        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
         level=log_level,
-        format=log_format,
-        datefmt=date_format,
-        handlers=[
-            logging.StreamHandler(sys.stdout),
-        ],
+        colorize=True,
     )
 
-    # Reduce noise from third-party libraries
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("httpcore").setLevel(logging.WARNING)
-    logging.getLogger("google_genai").setLevel(logging.WARNING)
-    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    # Optional: Add file handler for persistent logs
+    logger.add(
+        "logs/app.log",
+        rotation="500 MB",
+        retention="10 days",
+        compression="zip",
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+        level=log_level,
+    )
 
-    logging.info(f"Logging initialized at level {settings.LOG_LEVEL}")
+    # Suppress noisy third-party libraries
+    logger.disable("httpx")
+    logger.disable("httpcore")
+    logger.disable("urllib3")
+
+    # Bind initial context
+    logger.bind(service="food-analyzer")
+
+    logger.info(f"Logging initialized at level {log_level}")
+
+    return logger
+
+
+def get_logger(name: Optional[str] = None):
+    """Get a logger instance with optional context."""
+    if name:
+        return logger.bind(module=name)
+    return logger

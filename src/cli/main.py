@@ -1,17 +1,18 @@
 import argparse
-import sys
 import asyncio
+import sys
 from pathlib import Path
+
+from src.config import get_settings
+from src.core.analyzer import FoodAnalyzer
+from src.logging_config import setup_logging
 
 # All imports at top
 from src.services.http_cache import setup_http_cache
-from src.config import Settings
-from src.core.analyzer import FoodAnalyzer
-from src.logging_config import setup_logging
 from src.storage.database import Database
 
 # Initialize cache (after imports)
-settings = Settings()
+settings = get_settings()
 setup_http_cache(
     cache_name="nutrition_cli_cache",
     expire_after=settings.NUTRITION_CACHE_TTL_SECONDS,
@@ -74,13 +75,51 @@ def analyze_command(image_path):
     asyncio.run(_analyze())
 
 
-def list_command(limit: int = 10):
-    """List last N analyses."""
+# async version
+# def list_command(limit: int = 10):
+#     """List last N analyses."""
 
-    async def _list():
-        await Database.get_connection()
+#     async def _list():
+#         await Database.get_connection()
+#         results = await Database.get_last_10()
+#         await Database.close()
+#         if results:
+#             print(f"Last {len(results)} analyses:")
+#             for r in results:
+#                 print(
+#                     f"#{r['id']}: {r['image_path']} - {r['total_kcal']} kcal ({r['created_at']})"
+#                 )
+#         else:
+#             print("No analyses found in database")
+
+#     asyncio.run(_list())
+
+
+# def get_command(analysis_id: int):
+#     """Retrieve analysis by ID."""
+
+#     async def _get():
+#         await Database.get_connection()
+#         result = await Database.get_by_id(analysis_id)
+#         await Database.close()
+#         if result:
+#             print(f"Analysis #{result['id']}")
+#             print(f"Image: {result['image_path']}")
+#             print(f"Date: {result['created_at']}")
+#             print(
+#                 f"Totals: {result['total_kcal']} kcal, {result['total_protein_g']}g protein, {result['total_carbs_g']}g carbs, {result['total_fat_g']}g fat"
+#             )
+#         else:
+#             print(f"Analysis #{analysis_id} not found")
+
+#     asyncio.run(_get())
+
+
+async def list_command_async(limit: int = 10):
+    """List last N analyses."""
+    try:
+        await Database.init_pool()
         results = await Database.get_last_10()
-        await Database.close()
         if results:
             print(f"Last {len(results)} analyses:")
             for r in results:
@@ -89,28 +128,41 @@ def list_command(limit: int = 10):
                 )
         else:
             print("No analyses found in database")
-
-    asyncio.run(_list())
-
-
-def get_command(analysis_id: int):
-    """Retrieve analysis by ID."""
-
-    async def _get():
-        await Database.get_connection()
-        result = await Database.get_by_id(analysis_id)
+    except Exception as e:
+        print(f"Error reading database: {e}")
+    finally:
         await Database.close()
+
+
+def list_command(limit: int = 10):
+    """List last N analyses (sync wrapper)."""
+    asyncio.run(list_command_async(limit))
+
+
+async def get_command_async(analysis_id: int):
+    """Retrieve analysis by ID."""
+    try:
+        await Database.init_pool()
+        result = await Database.get_by_id(analysis_id)
         if result:
             print(f"Analysis #{result['id']}")
             print(f"Image: {result['image_path']}")
             print(f"Date: {result['created_at']}")
             print(
-                f"Totals: {result['total_kcal']} kcal, {result['total_protein_g']}g protein, {result['total_carbs_g']}g carbs, {result['total_fat_g']}g fat"
+                f"Totals: {result['total_kcal']} kcal, {result['total_protein_g']}g protein, "
+                f"{result['total_carbs_g']}g carbs, {result['total_fat_g']}g fat"
             )
         else:
             print(f"Analysis #{analysis_id} not found")
+    except Exception as e:
+        print(f"Error reading database: {e}")
+    finally:
+        await Database.close()
 
-    asyncio.run(_get())
+
+def get_command(analysis_id: int):
+    """Retrieve analysis by ID (sync wrapper)."""
+    asyncio.run(get_command_async(analysis_id))
 
 
 def main():
