@@ -118,6 +118,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: Dockerfile.multistage
           push: false
           load: true
           tags: food-analyzer:test
