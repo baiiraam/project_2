@@ -5,6 +5,7 @@ on:
     branches: [ main, master ]
   push:
     branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
   lint:
@@ -63,43 +64,20 @@ jobs:
           pip install pytest pytest-cov pytest-asyncio pytest-mock
 
       - name: Run tests with coverage
-        run: |
-          pytest tests/ --cov=src --cov-fail-under=60 --cov-report=term-missing -v
+        run: pytest tests/ --cov=src --cov-fail-under=60 --cov-report=term-missing -v
         env:
           LLM_PROVIDER: openai
           LLM_MODEL: gpt-4o-mini
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_BASE_URL: https://openrouter.ai/api/v1
-
-
-
-          # Choose one cache backend
-          CACHE_BACKEND: json      # redis, sqlite, or json
-
-          # For Redis
-          REDIS_URL: redis://localhost:6379
-
-          # For SQLite
-          # SQLITE_CACHE_PATH=cache.db
-
-          # For JSON (existing)
+          CACHE_BACKEND: json
           JSON_CACHE_MAX_SIZE_MB: 100
           JSON_CACHE_BACKUP_COUNT: 3
-
-          # --- Nutrition provider ---
           NUTRITION_PROVIDER: usda
-          USDA_API_KEY: ${{ secrets.USDA_API_KEY }}               # free key from https://fdc.nal.usda.gov/api-key-signup
-
+          USDA_API_KEY: ${{ secrets.USDA_API_KEY }}
           HTTP_CACHE_ENABLED: true
           HTTP_CACHE_TTL_SECONDS: 86400
-
-          # NUTRITION_PROVIDER=mock
-          # OPENFOODFACTS_USER_AGENT=AI-Food-Analyzer/1.0 (bayramovb578@gmail.com)
-
-          # --- SE-layer settings (you will populate these) ---
           LOG_LEVEL: INFO
-          # PostgreSQL connection string. For asyncpg, use the postgresql+asyncpg:// scheme.
-          # Spin up a local server with docker: `docker run -d --name pg -e POSTGRES_PASSWORD=dev -p 5432:5432 postgres:16`
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           NUTRITION_CACHE_TTL_SECONDS: 86400
           MAX_IMAGE_SIZE_MB: 5
@@ -114,20 +92,16 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: Dockerfile.multistage
-          push: false
-          load: true
-          tags: food-analyzer:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Test Docker image
+      - name: Build and run with docker-compose
         run: |
-          docker run --rm -d -p 8000:8000 --name test-api food-analyzer:test
-          sleep 15
-          curl -f http://localhost:8000/health || (docker logs test-api && exit 1)
-          docker stop test-api
+          docker compose up -d --build
+          sleep 10
+          docker compose logs api
+          curl -f http://localhost:8000/health || (docker compose logs && exit 1)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          USDA_API_KEY: ${{ secrets.USDA_API_KEY }}
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down
