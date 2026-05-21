@@ -1,6 +1,7 @@
 """Logging configuration using loguru."""
 
 import sys
+import os
 from typing import Optional
 
 from loguru import logger
@@ -19,7 +20,7 @@ def setup_logging():
     # Get log level from settings
     log_level = settings.LOG_LEVEL.upper()
 
-    # Add console handler with formatting
+    # Add console handler with formatting (always works)
     logger.add(
         sys.stdout,
         format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
@@ -27,15 +28,32 @@ def setup_logging():
         colorize=True,
     )
 
-    # Optional: Add file handler for persistent logs
-    logger.add(
-        "logs/app.log",
-        rotation="500 MB",
-        retention="10 days",
-        compression="zip",
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
-        level=log_level,
-    )
+    # Optional: Add file handler for persistent logs (skip if permission denied)
+    try:
+        # Ensure logs directory exists
+        log_dir = "logs"
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir, exist_ok=True)
+
+        # Test write permission
+        test_file = os.path.join(log_dir, ".write_test")
+        with open(test_file, 'w') as f:
+            f.write('test')
+        os.remove(test_file)
+
+        # Add file handler
+        logger.add(
+            "logs/app.log",
+            rotation="500 MB",
+            retention="10 days",
+            compression="zip",
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+            level=log_level,
+        )
+        logger.info("File logging enabled: logs/app.log")
+
+    except (PermissionError, OSError) as e:
+        logger.warning(f"Could not set up file logging: {e}. Continuing with console logging only.")
 
     # Suppress noisy third-party libraries
     logger.disable("httpx")
