@@ -1,7 +1,7 @@
 """Logging configuration using loguru."""
 
-import sys
 import os
+import sys
 from typing import Optional
 
 from loguru import logger
