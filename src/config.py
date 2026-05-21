@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     HTTP_CACHE_TTL_SECONDS: int = Field(default=86400, ge=60, le=86400)
 
     LOG_LEVEL: str = "INFO"
-    DATABASE_URL: Optional[str] = "War Pigs"
+    DATABASE_URL: Optional[str] = None
     NUTRITION_CACHE_TTL_SECONDS: int = Field(default=86400, ge=60, le=86400)
     MAX_IMAGE_SIZE_MB: int = Field(default=5, ge=1, le=10)
     HTTP_PORT: int = 8000
