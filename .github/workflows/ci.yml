@@ -92,11 +92,25 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Debug - Check Dockerfile
+        run: |
+          echo "Checking for Dockerfiles:"
+          ls -la Dockerfile* || echo "No Dockerfile found"
+          echo ""
+          echo "Checking docker-compose.yml build config:"
+          grep -A3 "build:" docker-compose.yml || echo "No build section found"
+
       - name: Build and run with docker-compose
         run: |
           docker compose up -d --build
           sleep 10
+          echo "Container status:"
+          docker compose ps
+          echo ""
+          echo "API logs:"
           docker compose logs api
+          echo ""
+          echo "Testing health endpoint:"
           curl -f http://localhost:8000/health || (docker compose logs && exit 1)
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
