@@ -1,3 +1,5 @@
+from typing import Any, Dict
+
 import requests
 from loguru import logger
 from tenacity import (
@@ -45,13 +47,13 @@ class OpenFoodFactsProvider(NutritionProvider):
         logger.debug(f"Looking up nutrition for: '{ingredient_name}'")
 
         search_url = f"{self.BASE_URL}/search"
-        params = {"search_terms": ingredient_name, "page_size": 10, "json": True}
+        params: Dict[str, Any] = {"search_terms": ingredient_name, "page_size": 10, "json": True}
         headers = {"User-Agent": self.user_agent}
 
         try:
             response = requests.get(
                 search_url, params=params, headers=headers, timeout=self.timeout
-            )  # type: ignore[arg-type]
+            )
 
             if response.status_code == 503:
                 logger.error(
