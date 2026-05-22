@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Food Analyzer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f0f2f5;
+            color: #1a1a2e;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px 16px;
+        }
+        .container { max-width: 780px; width: 100%; }
+        h1 { text-align: center; font-size: 1.8em; margin-bottom: 2px; color: #1a1a2e; }
+        .subtitle { text-align: center; color: #777; margin-bottom: 28px; font-size: 0.9em; }
+
+        .upload-area {
+            background: #fff;
+            border: 2px dashed #ccc;
+            border-radius: 14px;
+            padding: 36px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: .25s;
+        }
+        .upload-area:hover { border-color: #4a6cf7; background: #f8f9ff; }
+        .upload-area.has-img { border-style: solid; border-color: #4a6cf7; }
+        .upload-area img {
+            max-width: 100%; max-height: 320px;
+            border-radius: 8px; margin-top: 10px;
+        }
+        .icon { font-size: 2.8em; color: #bbb; margin-bottom: 10px; }
+        .btn {
+            display: inline-block;
+            background: #4a6cf7; color: #fff;
+            padding: 10px 28px; border-radius: 8px;
+            font-size: .95em; cursor: pointer; border: none;
+            transition: background .2s;
+        }
+        .btn:hover { background: #3b5de7; }
+        #file-input { display: none; }
+
+        .analyze-btn {
+            width: 100%; padding: 13px;
+            background: #1a1a2e; color: #fff;
+            border: none; border-radius: 10px;
+            font-size: 1.05em; cursor: pointer;
+            margin-top: 14px; transition: .2s;
+        }
+        .analyze-btn:hover { background: #2d2d4e; }
+        .analyze-btn:disabled { background: #aaa; cursor: not-allowed; }
+
+        .spinner { display: none; text-align: center; padding: 30px; }
+        .spinner.show { display: block; }
+        .spinner .ring {
+            width: 36px; height: 36px;
+            border: 4px solid #e0e0e0; border-top-color: #4a6cf7;
+            border-radius: 50%; margin: 0 auto 10px;
+            animation: spin .7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .result { display: none; margin-top: 22px; }
+        .result.show { display: block; }
+        .card {
+            background: #fff; border-radius: 14px;
+            padding: 22px; box-shadow: 0 1px 8px rgba(0,0,0,.06);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4,1fr);
+            gap: 10px; margin-bottom: 22px;
+        }
+        .grid-item {
+            text-align: center;
+            padding: 14px 6px; background: #f8f9ff; border-radius: 10px;
+        }
+        .grid-item .val { font-size: 1.4em; font-weight: 700; }
+        .grid-item .lbl { font-size: .75em; color: #888; margin-top: 2px; }
+
+        table { width: 100%; border-collapse: collapse; font-size: .92em; }
+        th { text-align: left; padding: 8px 6px; border-bottom: 2px solid #eee; color: #888; font-size: .75em; text-transform: uppercase; }
+        td { padding: 8px 6px; border-bottom: 1px solid #f0f0f0; }
+        .fname { font-weight: 600; }
+        .badge { display: inline-block; font-size: .65em; padding: 2px 10px; border-radius: 10px; background: #e8f5e9; color: #2e7d32; }
+        .badge.low { background: #fff3e0; color: #e65100; }
+
+        .info { margin-top: 14px; font-size: .82em; color: #999; text-align: center; }
+
+        .none-msg { text-align: center; color: #888; padding: 20px; }
+
+        @media (max-width: 500px) {
+            .grid { grid-template-columns: repeat(2,1fr); }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>AI Food Analyzer</h1>
+    <p class="subtitle">Upload a meal photo — identify ingredients &amp; estimate calories</p>
+
+    <div class="upload-area" id="dropzone" onclick="document.getElementById('file-input').click()">
+        <div class="icon">&#128247;</div>
+        <div><span class="btn">Choose Image</span></div>
+        <p style="margin-top:6px;color:#999;font-size:.82em">or drag &amp; drop</p>
+        <img id="preview" style="display:none">
+    </div>
+    <input type="file" id="file-input" accept="image/*">
+
+    <button class="analyze-btn" id="analyze-btn" disabled onclick="analyze()">Analyze Meal</button>
+
+    <div class="spinner" id="spinner">
+        <div class="ring"></div>
+        <span style="color:#888">AI analyzing your meal…</span>
+    </div>
+
+    <div class="result" id="result"><div class="card" id="output"></div></div>
+
+    <p class="info">AI Food Analyzer &middot; Results are estimates</p>
+</div>
+
+<script>
+const fileInput = document.getElementById('file-input');
+const preview = document.getElementById('preview');
+const dropzone = document.getElementById('dropzone');
+const analyzeBtn = document.getElementById('analyze-btn');
+const spinner = document.getElementById('spinner');
+const resultDiv = document.getElementById('result');
+const output = document.getElementById('output');
+
+let currentFile = null;
+
+fileInput.addEventListener('change', e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    currentFile = f;
+    const reader = new FileReader();
+    reader.onload = ev => { preview.src = ev.target.result; preview.style.display = 'block'; dropzone.classList.add('has-img'); analyzeBtn.disabled = false; };
+    reader.readAsDataURL(f);
+});
+
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.style.borderColor = '#4a6cf7'; dropzone.style.background = '#f8f9ff'; });
+dropzone.addEventListener('dragleave', () => { dropzone.style.borderColor = '#ccc'; dropzone.style.background = '#fff'; });
+dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.style.borderColor = '#ccc'; dropzone.style.background = '#fff';
+    const f = e.dataTransfer.files[0];
+    if (!f || !f.type.startsWith('image/')) return;
+    currentFile = f;
+    const reader = new FileReader();
+    reader.onload = ev => { preview.src = ev.target.result; preview.style.display = 'block'; dropzone.classList.add('has-img'); analyzeBtn.disabled = false; };
+    reader.readAsDataURL(f);
+    fileInput.files = e.dataTransfer.files;
+});
+
+async function analyze() {
+    if (!currentFile) return;
+    spinner.classList.add('show'); resultDiv.classList.remove('show'); analyzeBtn.disabled = true;
+
+    const fd = new FormData();
+    fd.append('file', currentFile);
+
+    try {
+        const resp = await fetch('/analyze', { method: 'POST', body: fd });
+        const data = await resp.json();
+        if (!resp.ok) { showError(data.detail || 'Server error'); return; }
+        render(data);
+    } catch { showError('Connection error'); }
+}
+
+function showError(msg) {
+    spinner.classList.remove('show'); analyzeBtn.disabled = false;
+    output.innerHTML = `<div style="color:#d32f2f;padding:12px;background:#ffebee;border-radius:8px">${msg}</div>`;
+    resultDiv.classList.add('show');
+}
+
+function render(data) {
+    spinner.classList.remove('show'); analyzeBtn.disabled = false;
+    const meals = data.ingredients || [];
+    const t = data.totals || {};
+    const mealOk = data.meal_recognized;
+
+    let html = '';
+
+    html += '<div class="grid">';
+    html += item('Calories', (t.kcal || 0).toFixed(0), 'kcal');
+    html += item('Protein', (t.protein_g || 0).toFixed(1), 'g');
+    html += item('Carbs', (t.carbs_g || 0).toFixed(1), 'g');
+    html += item('Fat', (t.fat_g || 0).toFixed(1), 'g');
+    html += '</div>';
+
+    if (meals.length) {
+        html += '<table><thead><tr><th>Food</th><th>Portion</th><th>Cal</th><th>P</th><th>C</th><th>F</th></tr></thead><tbody>';
+        meals.forEach(m => {
+            html += `<tr><td class="fname">${m.name}</td><td>${(m.grams||0).toFixed(0)}g</td><td>${(m.kcal||0).toFixed(0)}</td><td>${(m.protein_g||0).toFixed(1)}g</td><td>${(m.carbs_g||0).toFixed(1)}g</td><td>${(m.fat_g||0).toFixed(1)}g</td></tr>`;
+        });
+        html += '</tbody></table>';
+    } else {
+        html += '<div class="none-msg">No ingredients identified</div>';
+    }
+
+    const pct = meals.length ? 100 : 0;
+    html += `<div style="margin-top:10px;text-align:right;font-size:.78em;color:#999">meal_recognized: ${mealOk}</div>`;
+
+    output.innerHTML = html;
+    resultDiv.classList.add('show');
+}
+
+function item(label, val, unit) {
+    return `<div class="grid-item"><div class="val">${val}</div><div class="lbl">${label} <span style="color:#bbb">(${unit})</span></div></div>`;
+}
+</script>
+</body>
+</html>
