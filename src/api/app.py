@@ -18,8 +18,8 @@ from src.logging_config import setup_logging
 # All imports at top (required by ruff)
 from src.services.http_cache import clear_cache, get_cache_stats, setup_http_cache
 from src.storage.database import Database
-
-from src.web.routes import router as web_router, mount_static
+from src.web.routes import mount_static
+from src.web.routes import router as web_router
 
 # Initialize cache (after imports)
 settings = get_settings()
