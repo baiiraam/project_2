@@ -61,6 +61,7 @@ app = FastAPI(
         "name": "Your Name",
         "email": "your@email.com",
     },
+    lifespan=lifespan
 )
 
 app.add_middleware(
@@ -94,9 +95,9 @@ async def log_requests(request: Request, call_next):
 analyzer = FoodAnalyzer()
 
 
-@app.get("/")
-def read_root():
-    return {"message": "AI Food Analyzer API", "version": "1.0.0"}
+# @app.get("/")
+# def read_root():
+#     return {"message": "AI Food Analyzer API", "version": "1.0.0"}
 
 
 # async version of /health endpoint
