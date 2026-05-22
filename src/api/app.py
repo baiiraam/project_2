@@ -3,7 +3,6 @@
 import os
 import tempfile
 import time
-from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile, status
@@ -20,8 +19,7 @@ from src.logging_config import setup_logging
 from src.services.http_cache import clear_cache, get_cache_stats, setup_http_cache
 from src.storage.database import Database
 
-# from src.web.routes import router as web_router
-# from fastapi.staticfiles import StaticFiles
+from src.web.routes import router as web_router, mount_static
 
 # Initialize cache (after imports)
 settings = get_settings()
@@ -33,20 +31,6 @@ setup_http_cache(
 )
 
 setup_logging()
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup
-    await Database.init_pool()
-    logger.info("Database initialized")
-
-    yield
-
-    # Shutdown
-    await Database.close()
-    logger.info("Database closed")
-
 
 app = FastAPI(
     title="AI Food Analyzer API",
@@ -74,18 +58,22 @@ app.add_middleware(
 )
 
 
-# @app.on_event("startup")
-# async def startup():
-#     """Initialize database pool on startup."""
-#     await Database.init_pool()
-#     logger.info("Database initialized")
+mount_static(app)
+app.include_router(web_router)
 
 
-# @app.on_event("shutdown")
-# async def shutdown():
-#     """Close database pool on shutdown."""
-#     await Database.close()
-#     logger.info("Database closed")
+@app.on_event("startup")
+async def startup():
+    """Initialize database pool on startup."""
+    await Database.init_pool()
+    logger.info("Database initialized")
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    """Close database pool on shutdown."""
+    await Database.close()
+    logger.info("Database closed")
 
 
 @app.middleware("http")

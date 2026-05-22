@@ -1,0 +1,317 @@
+/* ==========================================================================
+   1. VARIABLES & RESET
+   ========================================================================== */
+:root {
+    --primary-color: #ff9e00;     /* Orange accent tint */
+    --secondary-color: #111111;   /* Dark text and button color */
+    --accent-blue: #0077b6;       /* Blue text color */
+    --text-muted: #666666;        /* Grey paragraph color */
+    --bg-color: #ffffff;          /* Main white background */
+    --font-sans: 'Poppins', system-ui, -apple-system, sans-serif;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-sans);
+    background-color: var(--bg-color);
+    color: var(--secondary-color);
+    line-height: 1.6;
+    overflow-x: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    width: 100%;
+    background-image:url(./../web-bg.webp) ;
+    background-repeat: no-repeat;
+    background-size: cover;
+
+}
+main{
+    width: 80%;
+    background-color: #fcfcfc;
+}
+
+/* ==========================================================================
+   2. REUSABLE COMPONENTS (BUTTONS)
+   ========================================================================== */
+header{
+
+    display:block ;
+    justify-content: space-evenly;
+    /* align-items: center; */
+
+}
+.btn {
+    display: inline-block;
+    padding: 0.8rem 2rem;
+    font-weight: 500;
+    border-radius: 30px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    font-size: 0.95rem;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-orange {
+    background-color: var(--primary-color);
+    color: #ffffff;
+}
+
+.btn-orange:hover {
+    background-color: #e58e00;
+    transform: translateY(-2px);
+}
+
+.btn-dark {
+    background-color: var(--secondary-color);
+    color: #ffffff;
+}
+
+.btn-dark:hover {
+    background-color: #333333;
+    transform: translateY(-2px);
+}
+
+/* ==========================================================================
+   3. HEADER & NAVIGATION
+   ========================================================================== */
+.main-header {
+    display: flex;
+    justify-content: space-between;
+    /* align-items: center; */
+    padding: 1.5rem 10%;
+    background-color: transparent;
+}
+
+.logo {
+    display: flex;
+    flex-direction: column;
+}
+
+.brand-name {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+}
+
+.sub-brand {
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-top: -4px;
+}
+
+
+.nav-links{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+}
+.nav-links a{
+    margin: 1em;
+    text-decoration: none;
+    font-size: x-large;
+    font-weight: 700;
+    
+}
+.nav-links a:hover{
+    cursor: pointer;
+    font-size: x-large;
+    color: #f0f0f0;
+
+}
+a{
+    text-decoration: none;
+}
+.esas{
+    color: #333333;
+}
+.benovseyi{
+color: blueviolet;
+}
+.yasil{
+color: green;
+}
+.mavi{
+    color: blue;
+
+}
+/* ==========================================================================
+   4. HERO SECTION
+   ========================================================================== */
+.hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4rem 10%;
+    min-height: 80vh;
+}
+
+.hero-content {
+    flex: 1;
+    max-width: 550px;
+    padding-right: 2rem;
+}
+
+.tagline {
+    color: var(--accent-blue);
+    font-weight: 600;
+    font-size: 0.85rem;
+    letter-spacing: 1.5px;
+}
+
+.stars {
+    color: var(--primary-color);
+    margin: 0.5rem 0 1.5rem 0;
+    letter-spacing: 3px;
+}
+
+.hero h1 {
+    font-size: 3.5rem;
+    line-height: 1.2;
+    margin-bottom: 1.5rem;
+    font-weight: 700;
+}
+
+.hero h1 .highlight {
+    color: var(--accent-blue);
+}
+
+.hero p {
+    color: var(--text-muted);
+    margin-bottom: 2.5rem;
+    font-size: 1rem;
+}
+
+.hero-buttons .btn {
+    margin-right: 1rem;
+}
+
+/* Hero Image & Layout Shapes */
+.hero-image-container {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.circle-image-wrapper {
+    width: 450px;
+    height: 450px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 15px solid #fcfcfc;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+}
+
+.hero-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* ==========================================================================
+   5. MENU SECTION
+   ========================================================================== */
+.menu-section {
+    padding: 5rem 10%;
+    text-align: left;
+}
+
+.section-tag {
+    color: var(--accent-blue);
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+.menu-header h2 {
+    font-size: 2.2rem;
+    margin: 0.5rem 0 1rem 0;
+}
+
+.section-desc {
+    color: var(--text-muted);
+    max-width: 450px;
+    margin-bottom: 2.5rem;
+    font-size: 0.95rem;
+}
+
+.menu-tabs {
+    display: flex;
+    gap: 1rem;
+}
+
+.tab-btn {
+    padding: 0.6rem 1.8rem;
+    border-radius: 25px;
+    border: 1px solid #e0e0e0;
+    background-color: transparent;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tab-btn:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.tab-btn.active {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #ffffff;
+}
+
+/* ==========================================================================
+   6. RESPONSIVE DESIGN (MOBILE OPTIMIZATION)
+   ========================================================================== */
+@media (max-width: 992px) {
+    .main-header {
+        padding: 1.5rem 5%;
+        justify-content: space-around;
+    }
+    .hero {
+        flex-direction: column-reverse;
+        text-align: center;
+        padding: 2rem 5%;
+    }
+    .hero-content {
+        padding-right: 0;
+        margin-top: 3rem;
+        max-width: 100%;
+    }
+    .hero h1 {
+        font-size: 2.5rem;
+    }
+    .circle-image-wrapper {
+        width: 320px;
+        height: 320px;
+    }
+    .menu-section {
+        padding: 3rem 5%;
+    }
+    .menu-tabs {
+        flex-wrap: wrap;
+    }
+}
+
+header{
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    width: 100%;
+}
+.hero{
+    box-shadow: rgba(0, 0, 0, 0.25) 0px 54px 55px, rgba(0, 0, 0, 0.12) 0px -12px 30px, rgba(0, 0, 0, 0.12) 0px 4px 6px, rgba(0, 0, 0, 0.17) 0px 12px 13px, rgba(0, 0, 0, 0.09) 0px -3px 5px;
+}
