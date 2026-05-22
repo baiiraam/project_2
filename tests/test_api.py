@@ -1,4 +1,4 @@
-"""Tests for API endpoints."""
+'''API tests'''
 
 from pathlib import Path
 from unittest.mock import patch
@@ -6,26 +6,62 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
+from ai.schemas import Ingredient, NutritionFacts
 from src.api.app import app
 
 client = TestClient(app)
 
 
-def test_analyze_with_valid_image():
+def test_analyze_with_valid_image(mocker):
     """Test analyze endpoint with valid image."""
-    # Use path that works from project root
     img_path = Path("data") / "cooked_turkey.jpeg"
 
-    # Skip test if file doesn't exist
     if not img_path.exists():
         pytest.skip(f"Test image not found: {img_path}")
+
+    # Mock the VLM to avoid real API calls
+    mock_ingredients = [
+        Ingredient(name="chicken", estimated_grams=150, confidence=0.9),
+        Ingredient(name="potatoes", estimated_grams=200, confidence=0.85),
+        Ingredient(name="carrots", estimated_grams=80, confidence=0.8),
+    ]
+
+    # Mock the async method
+    mocker.patch(
+        "src.services.ai_service.AIService.service_identify_ingredients_async",
+        return_value=mock_ingredients
+    )
+
+    # Also mock the nutrition provider to avoid USDA calls
+    mock_facts = {
+        "chicken": NutritionFacts(
+            name="chicken", kcal_per_100g=165, protein_g_per_100g=31,
+            carbs_g_per_100g=0, fat_g_per_100g=3.6, source="mock"
+        ),
+        "potatoes": NutritionFacts(
+            name="potatoes", kcal_per_100g=77, protein_g_per_100g=2.0,
+            carbs_g_per_100g=17, fat_g_per_100g=0.1, source="mock"
+        ),
+        "carrots": NutritionFacts(
+            name="carrots", kcal_per_100g=41, protein_g_per_100g=0.9,
+            carbs_g_per_100g=10, fat_g_per_100g=0.2, source="mock"
+        ),
+    }
+
+    mocker.patch(
+        "src.services.nutrition_cache.CachedNutritionProvider.async_lookup",
+        side_effect=lambda name: mock_facts.get(name)
+    )
 
     with open(img_path, "rb") as f:
         response = client.post(
             "/analyze", files={"file": ("test.jpg", f, "image/jpeg")}
         )
+
     assert response.status_code == 200
     assert "totals" in response.json()
+    assert response.json()["meal_recognized"] is True
+    assert len(response.json()["ingredients"]) == 3
 
 
 def test_analyze_with_invalid_file_type():

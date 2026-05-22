@@ -158,3 +158,124 @@ class TestHTTPCacheExtended:
                 mock_settings.return_value.HTTP_CACHE_ENABLED = False
                 result = clear_cache()
                 assert result is False
+
+
+
+
+
+
+
+# ============= HTTP CACHE EDGE CASES =============
+
+class TestHTTPCacheEdgeCases:
+    """Test edge cases and error handling in HTTP cache."""
+
+    def test_setup_cache_without_requests_cache_installed(self):
+        """Test graceful fallback when requests-cache not installed."""
+        import src.services.http_cache as http_cache
+
+        # Reset cache initialized flag
+        http_cache._cache_initialized = False
+
+        # Mock ImportError when trying to import requests_cache
+        with patch.dict('sys.modules', {'requests_cache': None}):
+            with patch('builtins.__import__', side_effect=ImportError):
+                # Should not raise exception
+                http_cache.setup_http_cache()
+                # Cache should remain uninitialized
+                assert http_cache._cache_initialized is False
+
+    def test_setup_cache_permission_error(self, mocker):
+        """Test handling of permission error when creating cache directory."""
+        import src.services.http_cache as http_cache
+
+        http_cache._cache_initialized = False
+
+        # Mock get_settings to return cache enabled
+        mock_settings = mocker.Mock()
+        mock_settings.HTTP_CACHE_ENABLED = True
+        mocker.patch("src.services.http_cache._get_settings", return_value=mock_settings)
+
+        # Mock os.makedirs to raise PermissionError
+        with patch("os.makedirs", side_effect=PermissionError("Access denied")):
+            with patch("requests_cache.install_cache") as mock_install:
+                # Should not raise exception
+                http_cache.setup_http_cache(cache_dir="/protected/dir")
+                # install_cache should NOT be called
+                mock_install.assert_not_called()
+
+
+    def test_setup_cache_value_error(self, mocker):
+        """Test handling of invalid cache configuration values."""
+        import src.services.http_cache as http_cache
+
+        http_cache._cache_initialized = False
+
+        mock_settings = mocker.Mock()
+        mock_settings.HTTP_CACHE_ENABLED = True
+        mocker.patch("src.services.http_cache._get_settings", return_value=mock_settings)
+
+        with patch("requests_cache.install_cache", side_effect=ValueError("Invalid TTL")):
+            # Should not raise exception
+            http_cache.setup_http_cache()
+
+
+    def test_get_cache_stats_no_db_path(self, mocker):
+        """Test cache stats when session has no db_path attribute."""
+        from src.services.http_cache import get_cache_stats
+
+        with patch("src.services.http_cache._cache_initialized", True):
+            with patch("requests_cache.get_cache") as mock_get:
+                mock_session = mocker.Mock()
+                # Deliberately remove db_path attribute
+                del mock_session.db_path
+                mock_get.return_value = mock_session
+
+                with patch("src.services.http_cache._get_settings") as mock_settings:
+                    mock_settings.return_value.HTTP_CACHE_TTL_SECONDS = 86400
+
+                    stats = get_cache_stats()
+                    assert stats is not None
+                    assert stats["status"] == "enabled"
+                    assert "cache_type" in stats
+
+    def test_clear_cache_not_initialized(self, mocker):
+        """Test clearing cache when not initialized."""
+        from src.services.http_cache import clear_cache
+
+        with patch("src.services.http_cache._cache_initialized", False):
+            with patch("src.services.http_cache._get_settings") as mock_settings:
+                mock_settings.return_value.HTTP_CACHE_ENABLED = True
+                result = clear_cache()
+                assert result is False
+
+    def test_clear_cache_disabled(self, mocker):
+        """Test clearing cache when cache is disabled."""
+        from src.services.http_cache import clear_cache
+
+        with patch("src.services.http_cache._cache_initialized", False):
+            with patch("src.services.http_cache._get_settings") as mock_settings:
+                mock_settings.return_value.HTTP_CACHE_ENABLED = False
+                result = clear_cache()
+                assert result is False
+
+    def test_setup_cache_already_initialized(self, mocker):
+        """Test setup when cache already initialized."""
+        import src.services.http_cache as http_cache
+
+        # Use a different approach - patch the module attribute
+        with patch.object(http_cache, '_cache_initialized', True):
+            with patch("requests_cache.install_cache") as mock_install:
+                http_cache.setup_http_cache()
+                # Should not reinitialize
+                mock_install.assert_not_called()
+
+    def test_get_cache_stats_disabled(self, mocker):
+        """Test cache stats when cache is disabled."""
+        from src.services.http_cache import get_cache_stats
+
+        with patch("src.services.http_cache._cache_initialized", False):
+            with patch("src.services.http_cache._get_settings") as mock_settings:
+                mock_settings.return_value.HTTP_CACHE_ENABLED = False
+                stats = get_cache_stats()
+                assert stats == {"status": "disabled", "reason": "HTTP_CACHE_ENABLED=false"}

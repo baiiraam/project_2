@@ -9,28 +9,26 @@ from typing import List
 
 from ai.schemas import NutritionFacts
 
-# Mock nutrition facts (fake data)
-MOCK_FACTS = NutritionFacts(
-    name="mock",
-    kcal_per_100g=100.0,
-    protein_g_per_100g=10.0,
-    carbs_g_per_100g=20.0,
-    fat_g_per_100g=5.0,
-    source="mock",
-)
 
-
-# Mock nutrition provider that simulates network delay
+# Add this line near the top of benchmark.py (after imports)
 class MockNutritionProvider:
+    # Add this constant
+    MOCK_FACTS = NutritionFacts(
+        name="mock",
+        kcal_per_100g=100.0,
+        protein_g_per_100g=10.0,
+        carbs_g_per_100g=20.0,
+        fat_g_per_100g=5.0,
+        source="mock",
+    )
+
     async def async_lookup(self, name: str) -> NutritionFacts:
-        # Simulate network delay (0.05 to 0.15 seconds)
         await asyncio.sleep(random.uniform(0.05, 0.15))
-        return MOCK_FACTS
+        return self.MOCK_FACTS  # Use constant instead of creating new
 
     def lookup(self, name: str) -> NutritionFacts:
-        # Simulate blocking delay
         time.sleep(random.uniform(0.05, 0.15))
-        return MOCK_FACTS
+        return self.MOCK_FACTS  # Use constant instead of creating new
 
 
 # Test ingredients (20 items)
@@ -78,7 +76,8 @@ async def benchmark_async(
     return end - start
 
 
-if __name__ == "__main__":
+def main():
+    """Main entry point for the benchmark script."""
     print("=" * 50)
     print("Nutrition Lookup Benchmark (Mock)")
     print(f"Ingredients: {len(TEST_INGREDIENTS)} items")
@@ -100,3 +99,7 @@ if __name__ == "__main__":
     print("=" * 50)
     print("\nNote: This benchmark uses mock delays.")
     print("Real USDA API calls would show similar or better speedup.")
+
+
+if __name__ == "__main__":
+    main()

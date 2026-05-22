@@ -311,3 +311,114 @@ class TestAIService:
         service = AIService()
         with pytest.raises(ProviderError, match="timeout"):
             await service.service_identify_ingredients_async("test.jpg", timeout=0.1)
+
+
+
+
+
+
+
+# ============= MOCK NUTRITION PROVIDER TESTS =============
+
+class TestMockNutritionProvider:
+    """Test mock nutrition provider fuzzy matching and edge cases."""
+
+    def test_mock_provider_exact_match(self):
+        """Test exact ingredient name matching."""
+        from src.services.mock_nutrition_provider import MockNutritionProvider
+        provider = MockNutritionProvider()
+
+        # Exact matches
+        rice = provider.lookup("rice")
+        assert rice.kcal_per_100g == 130
+        assert rice.protein_g_per_100g == 2.7
+
+        chicken = provider.lookup("chicken")
+        assert chicken.kcal_per_100g == 165
+
+        broccoli = provider.lookup("broccoli")
+        assert broccoli.kcal_per_100g == 34
+
+    def test_mock_provider_case_insensitive(self):
+        """Test case-insensitive matching."""
+        from src.services.mock_nutrition_provider import MockNutritionProvider
+        provider = MockNutritionProvider()
+
+        # All should match "rice"
+        assert provider.lookup("RICE").kcal_per_100g == 130
+        assert provider.lookup("Rice").kcal_per_100g == 130
+        assert provider.lookup("rIcE").kcal_per_100g == 130
+
+    def test_mock_provider_keyword_matching(self):
+        """Test partial/keyword matching for phrases."""
+        from src.services.mock_nutrition_provider import MockNutritionProvider
+        provider = MockNutritionProvider()
+
+        # Should match "rice" keyword
+        result = provider.lookup("bowl of white rice")
+        assert result.kcal_per_100g == 130
+
+        # Should match "chicken" keyword
+        result = provider.lookup("grilled chicken sandwich")
+        assert result.kcal_per_100g == 165
+
+        # Should match "bread" keyword
+        result = provider.lookup("slice of bread with butter")
+        assert result.kcal_per_100g == 265
+
+    def test_mock_provider_whitespace_handling(self):
+        """Test stripping whitespace from ingredient names."""
+        from src.services.mock_nutrition_provider import MockNutritionProvider
+        provider = MockNutritionProvider()
+
+        # Spaces around name
+        result = provider.lookup("  rice  ")
+        assert result.kcal_per_100g == 130
+
+        # Newlines and tabs
+        result = provider.lookup("\n\trice\n\t")
+        assert result.kcal_per_100g == 130
+
+    def test_mock_provider_unknown_ingredient(self):
+        """Test unknown ingredients return zeros."""
+        from src.services.mock_nutrition_provider import MockNutritionProvider
+        provider = MockNutritionProvider()
+
+        result = provider.lookup("dragon fruit smoothie")
+        assert result.kcal_per_100g == 0
+        assert result.protein_g_per_100g == 0
+        assert result.carbs_g_per_100g == 0
+        assert result.fat_g_per_100g == 0
+        assert result.source == "mock"
+
+    def test_mock_provider_empty_string(self):
+        """Test empty string returns zeros."""
+        from src.services.mock_nutrition_provider import MockNutritionProvider
+        provider = MockNutritionProvider()
+
+        result = provider.lookup("")
+        assert result.kcal_per_100g == 0
+
+        result = provider.lookup("   ")
+        assert result.kcal_per_100g == 0
+
+    def test_mock_provider_very_long_name(self):
+        """Test very long ingredient name (should handle gracefully)."""
+        from src.services.mock_nutrition_provider import MockNutritionProvider
+        provider = MockNutritionProvider()
+
+        long_name = "rice " * 100  # 500+ characters
+        result = provider.lookup(long_name)
+        # Should still match "rice" keyword
+        assert result.kcal_per_100g == 130
+
+    def test_mock_provider_multiple_keywords(self):
+        """Test when multiple keywords match, first one wins."""
+        from src.services.mock_nutrition_provider import MockNutritionProvider
+        provider = MockNutritionProvider()
+
+        # Both "chicken" and "rice" are in MOCK_NUTRITION
+        # Should match the first keyword found (depends on dict order)
+        result = provider.lookup("chicken and rice bowl")
+        # Either chicken or rice, but not zero
+        assert result.kcal_per_100g > 0
