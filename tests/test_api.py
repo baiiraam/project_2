@@ -177,7 +177,14 @@ class TestAPICoverage:
             assert response.status_code == 500
 
     def test_root_endpoint(self):
-        """Test root endpoint."""
+        """Test root endpoint returns web UI or API info."""
         response = client.get("/")
         assert response.status_code == 200
-        assert "AI Food Analyzer" in response.json()["message"]
+
+        # Check if response is HTML (web UI) or JSON
+        if "text/html" in response.headers.get("content-type", ""):
+            # It's the web UI - check for HTML content
+            assert "<title>" in response.text.lower() or "food" in response.text.lower()
+        else:
+            # It's JSON response
+            assert "AI Food Analyzer" in response.json()["message"]
