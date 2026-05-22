@@ -3,6 +3,7 @@
 import os
 import tempfile
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile, status
@@ -33,7 +34,7 @@ setup_http_cache(
 
 setup_logging()
 
-from contextlib import asynccontextmanager
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
@@ -45,7 +46,6 @@ async def lifespan(app: FastAPI):
     # Shutdown
     await Database.close()
     logger.info("Database closed")
-
 
 
 app = FastAPI(
@@ -72,7 +72,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 
 # @app.on_event("startup")

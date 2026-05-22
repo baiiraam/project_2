@@ -5,7 +5,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from ai.schemas import Ingredient, NutritionFacts, Nutrition
+from ai.schemas import Ingredient, Nutrition, NutritionFacts
+from src.cli.main import analyze_command, main
 
 
 class TestCLIAnalyzeCommand:
@@ -273,12 +274,7 @@ def test_print_analysis_table_with_various_formats(capsys):
 
 """Additional CLI tests to improve coverage."""
 
-import sys
-from unittest.mock import patch, MagicMock, AsyncMock
 
-import pytest
-
-from src.cli.main import main, analyze_command, list_command, get_command
 
 
 class TestCLIMainFunction:

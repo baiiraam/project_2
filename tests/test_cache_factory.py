@@ -1,9 +1,6 @@
 """Additional tests for cache factory to improve coverage."""
 
-import json
-import tempfile
-from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -163,7 +160,7 @@ class TestCreateCacheFactory:
             with patch("src.services.cache_factory.SQLiteCache") as mock_sqlite_cache:
                 mock_sqlite_cache.return_value = MagicMock()
 
-                cache = create_cache()
+                create_cache()
 
                 # Verify SQLiteCache was instantiated
                 mock_sqlite_cache.assert_called_once()

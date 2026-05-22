@@ -37,8 +37,8 @@ def setup_logging():
 
         # Test write permission
         test_file = os.path.join(log_dir, ".write_test")
-        with open(test_file, 'w') as f:
-            f.write('test')
+        with open(test_file, "w") as f:
+            f.write("test")
         os.remove(test_file)
 
         # Add file handler
@@ -53,7 +53,9 @@ def setup_logging():
         logger.info("File logging enabled: logs/app.log")
 
     except (PermissionError, OSError) as e:
-        logger.warning(f"Could not set up file logging: {e}. Continuing with console logging only.")
+        logger.warning(
+            f"Could not set up file logging: {e}. Continuing with console logging only."
+        )
 
     # Suppress noisy third-party libraries
     logger.disable("httpx")
