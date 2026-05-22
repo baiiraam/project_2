@@ -1,7 +1,6 @@
 """Extended tests for HTTP cache to improve coverage."""
 
-import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import MagicMock, patch
 
 
 class TestHTTPCacheExtended:
@@ -104,7 +103,7 @@ class TestHTTPCacheExtended:
         with patch("src.services.http_cache._get_settings") as mock_settings:
             mock_settings.return_value.HTTP_CACHE_ENABLED = True
 
-            with patch("requests_cache.install_cache") as mock_install:
+            with patch("requests_cache.install_cache"):
                 with patch("os.makedirs") as mock_makedirs:
                     import src.services.http_cache
                     src.services.http_cache._cache_initialized = False

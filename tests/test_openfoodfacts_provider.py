@@ -1,7 +1,8 @@
 """Tests for OpenFoodFacts provider."""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 import requests
 
 from ai.providers.base import ProviderError

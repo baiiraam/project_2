@@ -1,6 +1,7 @@
 """Tests for API endpoints."""
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -46,11 +47,7 @@ def test_analyze_with_no_file():
 
 """Additional API tests for better coverage."""
 
-import pytest
-from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock
 
-from src.api.app import app
 
 client = TestClient(app)
 
