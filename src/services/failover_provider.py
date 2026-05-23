@@ -1,11 +1,10 @@
 """Failover provider that tries multiple providers in sequence."""
 
-import logging
 from typing import Dict, List, Optional
 
-from ai.providers.base import LLMProvider, ProviderError, VLMProvider
+from loguru import logger
 
-logger = logging.getLogger(__name__)
+from ai.providers.base import LLMProvider, ProviderError, VLMProvider
 
 
 class FailoverVLM(VLMProvider):
@@ -30,14 +29,14 @@ class FailoverVLM(VLMProvider):
         for i, provider in enumerate(self.providers):
             try:
                 logger.info(
-                    f"Trying provider {i + 1}/{len(self.providers)}: {type(provider).__name__}"
+                    f"🔄 Trying provider {i + 1}/{len(self.providers)}: {type(provider).__name__}"
                 )
                 result = provider.describe(image_path, prompt, json_schema=json_schema)
                 self._active_index = i
-                logger.info(f"Success with provider: {type(provider).__name__}")
+                logger.info(f"✅ Success with provider: {type(provider).__name__}")
                 return result
             except (ProviderError, ConnectionError, TimeoutError) as e:
-                logger.warning(f"Provider {type(provider).__name__} failed: {str(e)}")
+                logger.warning(f"❌ Provider {type(provider).__name__} failed: {str(e)}")
                 last_error = e
                 continue
 
@@ -68,16 +67,16 @@ class FailoverLLM(LLMProvider):
         for i, provider in enumerate(self.providers):
             try:
                 logger.info(
-                    f"Trying provider {i + 1}/{len(self.providers)}: {type(provider).__name__}"
+                    f"🔄 Trying provider {i + 1}/{len(self.providers)}: {type(provider).__name__}"
                 )
                 result = provider.complete(
                     prompt, json_schema=json_schema, max_tokens=max_tokens
                 )
                 self._active_index = i
-                logger.info(f"Success with provider: {type(provider).__name__}")
+                logger.info(f"✅ Success with provider: {type(provider).__name__}")
                 return result
             except (ProviderError, ConnectionError, TimeoutError) as e:
-                logger.warning(f"Provider {type(provider).__name__} failed: {str(e)}")
+                logger.warning(f"❌ Provider {type(provider).__name__} failed: {str(e)}")
                 last_error = e
                 continue
 
