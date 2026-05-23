@@ -41,10 +41,10 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install mypy types-requests types-python-dateutil
+          pip install ty           # ← Install ty (monocle) instead of mypy
 
-      - name: Type check with mypy
-        run: mypy src/ --ignore-missing-imports --allow-untyped-decorators --exclude 'src/scripts/' --exclude 'ai/'
+      - name: Type check with ty
+        run: ty check src/ --exclude 'src/scripts/' --exclude 'ai/'
 
   test:
     runs-on: ubuntu-latest
@@ -99,11 +99,9 @@ jobs:
         docker compose logs api
         curl -f http://localhost:8000/health || (docker compose logs && exit 1)
       env:
-        # Pass secrets from GitHub to docker-compose
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         USDA_API_KEY: ${{ secrets.USDA_API_KEY }}
-        OPENAI_BASE_URL: https://openrouter.ai/api/v1  # ← Add this
-        # Also pass configuration
+        OPENAI_BASE_URL: https://openrouter.ai/api/v1
         LLM_PROVIDER: openai
         NUTRITION_PROVIDER: usda
         LOG_LEVEL: INFO
