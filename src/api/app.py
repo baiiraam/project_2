@@ -19,6 +19,7 @@ from src.logging_config import setup_logging
 # All imports at top (required by ruff)
 from src.services.http_cache import clear_cache, get_cache_stats, setup_http_cache
 from src.storage.database import Database
+from src.telemetry.tracing import instrument_fastapi, instrument_requests, setup_tracing
 from src.web.routes import mount_static
 from src.web.routes import router as web_router
 
@@ -46,6 +47,9 @@ async def lifespan(app: FastAPI):
     await Database.close()
     logger.info("Database closed")
 
+
+
+
 app = FastAPI(
     title="AI Food Analyzer API",
     description="""
@@ -63,6 +67,12 @@ app = FastAPI(
     },
     lifespan=lifespan
 )
+
+
+# After creating app, before startup
+setup_tracing()
+instrument_fastapi(app)
+instrument_requests()
 
 app.add_middleware(
     CORSMiddleware,

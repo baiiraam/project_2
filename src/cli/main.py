@@ -3,6 +3,7 @@ import asyncio
 import sys
 from pathlib import Path
 
+from src.cli.cost_report import add_cost_report_parser
 from src.config import get_settings
 from src.core.analyzer import FoodAnalyzer
 from src.logging_config import setup_logging
@@ -172,6 +173,9 @@ def main():
     )
     subparsers = parser.add_subparsers(dest="command", required=True, help="Commands")
 
+    # Add cost-report parser (this sets func=cost_report_command)
+    add_cost_report_parser(subparsers)
+
     # Analyze command
     analyze_parser = subparsers.add_parser("analyze", help="Analyze a meal photo")
     analyze_parser.add_argument("image_path", help="Path to the meal image file")
@@ -185,7 +189,15 @@ def main():
 
     args = parser.parse_args()
 
-    if args.command == "analyze":
+    # Dispatch based on whether func attribute exists (for cost-report)
+    if hasattr(args, 'func'):
+        # Call the function with the args
+        # Extract parameters for cost_report_command
+        since = getattr(args, 'since', '24h')
+        provider = getattr(args, 'provider', None)
+        top = getattr(args, 'top', 10)
+        args.func(since=since, provider=provider, top=top)
+    elif args.command == "analyze":
         analyze_command(args.image_path)
     elif args.command == "get":
         get_command(args.id)
