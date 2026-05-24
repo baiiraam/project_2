@@ -1,4 +1,4 @@
-# what to do when we get error 503. We should deal with it in retry logic.
+"""FastAPI application for AI Food Analyzer."""
 
 import os
 import tempfile
@@ -8,22 +8,34 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
+# from fastapi.middleware.proxy_headers import ProxyHeadersMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from loguru import logger
 
 from ai.providers.base import ProviderError
 from src.api.models import AnalysisResult, IngredientResponse, TotalsResponse
 from src.config import get_settings
 from src.core.analyzer import FoodAnalyzer
-from src.logging_config import setup_logging
-
-# All imports at top (required by ruff)
+from src.logging_config import get_logger, setup_logging
 from src.services.http_cache import clear_cache, get_cache_stats, setup_http_cache
 from src.storage.database import Database
 from src.telemetry.tracing import instrument_fastapi, instrument_requests, setup_tracing
 from src.web.routes import mount_static
 from src.web.routes import router as web_router
 
-# Initialize cache (after imports)
+# ============================================================
+# STEP 1: Setup logging FIRST
+# ============================================================
+setup_logging()
+
+# ============================================================
+# STEP 2: Create specific loggers
+# ============================================================
+api_logger = get_logger("api", log_type="api")
+
+# ============================================================
+# STEP 3: Initialize settings and cache
+# ============================================================
 settings = get_settings()
 setup_http_cache(
     cache_name="nutrition_api_cache",
@@ -32,9 +44,10 @@ setup_http_cache(
     cache_dir=".cache",
 )
 
-setup_logging()
 
-
+# ============================================================
+# STEP 4: Lifespan manager
+# ============================================================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
@@ -48,8 +61,9 @@ async def lifespan(app: FastAPI):
     logger.info("Database closed")
 
 
-
-
+# ============================================================
+# STEP 5: Create FastAPI app
+# ============================================================
 app = FastAPI(
     title="AI Food Analyzer API",
     description="""
@@ -68,12 +82,30 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-
-# After creating app, before startup
+# ============================================================
+# STEP 6: Setup telemetry
+# ============================================================
 setup_tracing()
 instrument_fastapi(app)
 instrument_requests()
 
+# ============================================================
+# STEP 7: Middleware (order matters!)
+# ============================================================
+
+# # 7.1 Proxy headers should come first to set correct client info
+# app.add_middleware(
+#     ProxyHeadersMiddleware,
+#     trusted_hosts=["*"],  # In production, specify your domain
+# )
+
+# 7.2 Trusted host middleware
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["*"],  # In production, specify your domain
+)
+
+# 7.3 CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -82,55 +114,56 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ============================================================
+# STEP 8: Custom middleware
+# ============================================================
 
-mount_static(app)
-app.include_router(web_router)
+@app.middleware("http")
+async def set_client_ip(request: Request, call_next):
+    """Extract real client IP from proxy headers (for use behind Nginx)."""
+    # Get forwarded IP from proxy headers
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        # X-Forwarded-For can contain multiple IPs (client, proxy1, proxy2)
+        # The first one is the original client IP
+        client_ip = forwarded.split(',')[0].strip()
+        # Set the client IP on the request for logging
+        request.state.client_ip = client_ip
 
+    response = await call_next(request)
+    return response
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
+    """Log all HTTP requests with timing."""
     t1 = time.perf_counter()
-    resp = await call_next(request)
+    response = await call_next(request)
     t2 = time.perf_counter()
-    time_spent = t2 - t1
-    logger.info(
-        f"Method: {request.method} | "
-        f"Path: {request.url.path} | "
-        f"Status: {resp.status_code} | "
-        f"Duration: {time_spent:.4f}s"
+
+    # Get client IP (prefer from proxy headers if behind Nginx)
+    client_ip = getattr(request.state, 'client_ip', request.client.host if request.client else "unknown")
+
+    # Log to API log file
+    api_logger.info(
+        f"{request.method} {request.url.path} | {response.status_code} | {t2-t1:.4f}s | Client: {client_ip}"
     )
-    return resp
 
+    return response
 
+# ============================================================
+# STEP 9: Static files and routes
+# ============================================================
+mount_static(app)
+app.include_router(web_router)
+
+# ============================================================
+# STEP 10: Initialize analyzer
+# ============================================================
 analyzer = FoodAnalyzer()
 
-
-# @app.get("/")
-# def read_root():
-#     return {"message": "AI Food Analyzer API", "version": "1.0.0"}
-
-
-# async version of /health endpoint
-# @app.get("/health")
-# async def read_health():
-#     """Health check endpoint with database status."""
-#     db_ok = False
-#     try:
-#         pool = await Database.get_pool()
-#         async with pool.acquire() as conn:
-#             await conn.execute("SELECT 1")
-#             db_ok = True
-#     except Exception as e:
-#         logger.error(f"Health check failed: {e}")
-
-#     return {
-#         "status": "ok" if db_ok else "degraded",
-#         "database": "connected" if db_ok else "disconnected",
-#         "timestamp": time.time(),
-#         "cache_enabled": settings.HTTP_CACHE_ENABLED
-#     }
-
-
+# ============================================================
+# STEP 11: Endpoints
+# ============================================================
 @app.get("/health")
 async def read_health():
     """Health check endpoint with database status."""
@@ -270,3 +303,90 @@ async def analyze(file: UploadFile = File(...)):
                 logger.debug(f"Temp file deleted: {tmp_name}")
             except Exception as e:
                 logger.warning(f"Failed to delete temp file: {e}")
+
+
+
+
+
+# Add this endpoint after the existing ones (around line 200)
+
+@app.get("/analysis/{analysis_id}", response_model=AnalysisResult)
+async def get_analysis(analysis_id: int):
+    """Retrieve a previously analyzed meal by ID."""
+    logger.info(f"Retrieving analysis with ID: {analysis_id}")
+
+    try:
+        # Fetch from database
+        result = await Database.get_by_id(analysis_id)
+
+        if not result:
+            logger.warning(f"Analysis with ID {analysis_id} not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Analysis with ID {analysis_id} not found"
+            )
+
+        # Parse the stored data
+        ingredients_response = []
+        for ingredient in result.get('ingredients', []):
+            ingredients_response.append(
+                IngredientResponse(
+                    name=ingredient.get('name'),
+                    grams=ingredient.get('estimated_grams'),
+                    kcal=ingredient.get('kcal', 0),
+                    protein_g=ingredient.get('protein_g', 0),
+                    carbs_g=ingredient.get('carbs_g', 0),
+                    fat_g=ingredient.get('fat_g', 0),
+                )
+            )
+
+        response = AnalysisResult(
+            ingredients=ingredients_response,
+            totals=TotalsResponse(
+                kcal=result.get('total_kcal', 0),
+                protein_g=result.get('total_protein_g', 0),
+                carbs_g=result.get('total_carbs_g', 0),
+                fat_g=result.get('total_fat_g', 0),
+            ),
+            meal_recognized=len(ingredients_response) > 0,
+        )
+
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error retrieving analysis {analysis_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving analysis: {str(e)}"
+        )
+
+
+@app.get("/analyses")
+async def list_analyses(limit: int = 10):
+    """List recent analyses."""
+    logger.info(f"Listing analyses with limit: {limit}")
+
+    try:
+        results = await Database.get_last_n(limit)
+
+        return {
+            "total": len(results),
+            "analyses": [
+                {
+                    "id": r.get('id'),
+                    "image_path": r.get('image_path'),
+                    "total_kcal": r.get('total_kcal', 0),
+                    "created_at": r.get('created_at'),
+                    "meal_recognized": r.get('meal_recognized', False)
+                }
+                for r in results
+            ]
+        }
+    except Exception as e:
+        logger.exception(f"Error listing analyses: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error listing analyses: {str(e)}"
+        )
