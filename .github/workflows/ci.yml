@@ -41,7 +41,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install ty  # Install ty instead of mypy
+          pip install ty
 
       - name: Type check with ty
         run: ty check src/ --exclude 'ai/'
@@ -95,15 +95,20 @@ jobs:
     - name: Build and run with docker-compose
       run: |
         docker compose up -d --build
+        echo "Waiting for services to be ready..."
         sleep 30
-        docker compose logs api
-        curl -f http://localhost:8000/health || (docker compose logs && exit 1)
+        echo "=== Container Status ==="
+        docker compose ps
+        echo "=== Testing API through Nginx (port 80) ==="
+        # Test through Nginx instead of direct API access
+        curl -f http://localhost/health || (docker compose logs && exit 1)
+        echo "=== Testing Web UI ==="
+        curl -f http://localhost/ | head -20
+        echo "=== All tests passed ==="
       env:
-        # Pass secrets from GitHub to docker-compose
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         USDA_API_KEY: ${{ secrets.USDA_API_KEY }}
         OPENAI_BASE_URL: https://openrouter.ai/api/v1
-        # Also pass configuration
         LLM_PROVIDER: openai
         NUTRITION_PROVIDER: usda
         LOG_LEVEL: INFO
