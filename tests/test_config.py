@@ -3,7 +3,6 @@ import pytest
 from src.config import Settings
 
 
-
 def test_llm_provider_anthropic_requires_key():
     with pytest.raises(ValueError):
         Settings(LLM_PROVIDER="anthropic")

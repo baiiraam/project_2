@@ -1,6 +1,9 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from src.telemetry.cost_meter import CostMeter
+
 
 class TestCostMeter:
 
@@ -8,8 +11,8 @@ class TestCostMeter:
     def cost_meter_with_mocks(self):
         """Fixture that provides a CostMeter with all DB operations mocked."""
         with patch('src.telemetry.cost_meter.sqlite3.connect') as mock_connect, \
-             patch('src.telemetry.cost_meter.CostMeter._init_db') as mock_init_db, \
-             patch('src.telemetry.cost_meter.CostMeter.estimate_cost') as mock_estimate:
+             patch.object(CostMeter, '_init_db'), \
+             patch.object(CostMeter, 'estimate_cost') as mock_estimate:
 
             # Setup mocks
             mock_conn = MagicMock()
@@ -17,9 +20,8 @@ class TestCostMeter:
             mock_connect.return_value.__enter__.return_value = mock_conn
             mock_conn.cursor.return_value = mock_cursor
 
-            # Create instance with mocked initialization
+            # Create instance (methods are already patched)
             meter = CostMeter(db_path=":memory:")
-            meter._init_db = mock_init_db
 
             # Default estimate_cost behavior
             mock_estimate.return_value = 0.001
