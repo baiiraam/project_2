@@ -1,104 +1,93 @@
-"""
-THIS IS FOR TEST PURPOSE. THE CODE INSIDE NEEDS CHANGING.
-"""
+"""Benchmark for nutrition lookups - Windows compatible (no emojis)."""
 
-import asyncio
-import random
+import sys
 import time
-from typing import List
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 
-from ai.schemas import NutritionFacts
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from src.config import get_settings
 
-# Add this line near the top of benchmark.py (after imports)
-class MockNutritionProvider:
-    # Add this constant
-    MOCK_FACTS = NutritionFacts(
-        name="mock",
-        kcal_per_100g=100.0,
-        protein_g_per_100g=10.0,
-        carbs_g_per_100g=20.0,
-        fat_g_per_100g=5.0,
-        source="mock",
-    )
-
-    async def async_lookup(self, name: str) -> NutritionFacts:
-        await asyncio.sleep(random.uniform(0.05, 0.15))
-        return self.MOCK_FACTS  # Use constant instead of creating new
-
-    def lookup(self, name: str) -> NutritionFacts:
-        time.sleep(random.uniform(0.05, 0.15))
-        return self.MOCK_FACTS  # Use constant instead of creating new
-
-
-# Test ingredients (20 items)
 TEST_INGREDIENTS = [
-    "rice",
-    "chicken",
-    "broccoli",
-    "tomato",
-    "cheese",
-    "pasta",
-    "salmon",
-    "potato",
-    "egg",
-    "carrot",
-    "onion",
-    "garlic",
-    "spinach",
-    "apple",
-    "banana",
-    "milk",
-    "bread",
-    "butter",
-    "salt",
-    "pepper",
+    "rice", "chicken breast", "broccoli", "tomato", "cheese",
+    "pasta", "salmon", "potato", "egg", "carrot",
+    "onion", "garlic", "spinach", "apple", "banana",
 ]
 
 
-def benchmark_sync(provider: MockNutritionProvider, ingredients: List[str]) -> float:
-    """Sequential sync lookup."""
-    start = time.perf_counter()
-    for name in ingredients:
-        provider.lookup(name)
-    end = time.perf_counter()
-    return end - start
-
-
-async def benchmark_async(
-    provider: MockNutritionProvider, ingredients: List[str]
-) -> float:
-    """Concurrent async lookup."""
-    start = time.perf_counter()
-    tasks = [provider.async_lookup(name) for name in ingredients]
-    await asyncio.gather(*tasks)
-    end = time.perf_counter()
-    return end - start
-
-
 def main():
-    """Main entry point for the benchmark script."""
-    print("=" * 50)
-    print("Nutrition Lookup Benchmark (Mock)")
-    print(f"Ingredients: {len(TEST_INGREDIENTS)} items")
-    print("Each mock lookup simulates 0.05-0.15s network delay")
-    print("=" * 50)
+    print("\n" + "=" * 60)
+    print("AI FOOD ANALYZER - BENCHMARK (15 INGREDIENTS)")
+    print("=" * 60)
 
-    provider = MockNutritionProvider()
+    settings = get_settings()
+    provider = settings.get_nutrition_provider()
 
-    print("\nRunning synchronous benchmark (sequential)...")
-    sync_time = benchmark_sync(provider, TEST_INGREDIENTS)
-    print(f"Sync (sequential): {sync_time:.4f} seconds")
+    print("\n[CONFIGURATION]")
+    print(f"  Nutrition Providers: {settings.get_available_nutrition_providers()}")
+    print(f"  Failover Enabled: {settings.NUTRITION_FAILOVER_ENABLED}")
+    print(f"  Provider Type: {type(provider).__name__}")
 
-    print("\nRunning asynchronous benchmark (concurrent)...")
-    async_time = asyncio.run(benchmark_async(provider, TEST_INGREDIENTS))
-    print(f"Async (concurrent): {async_time:.4f} seconds")
+    # Sequential
+    print("\n" + "-" * 60)
+    print("SEQUENTIAL LOOKUP")
+    print("-" * 60)
 
-    print("\n" + "=" * 50)
-    print(f"Speedup: {sync_time / async_time:.2f}x faster")
-    print("=" * 50)
-    print("\nNote: This benchmark uses mock delays.")
-    print("Real USDA API calls would show similar or better speedup.")
+    start = time.perf_counter()
+    seq_results = {}
+    for i, name in enumerate(TEST_INGREDIENTS, 1):
+        try:
+            facts = provider.lookup(name)
+            seq_results[name] = facts.kcal_per_100g
+            print(f"  {i:2}. {name:<20} {facts.kcal_per_100g:>6.0f} kcal/100g")
+        except Exception as e:
+            print(f"  {i:2}. {name:<20} FAILED: {e}")
+            seq_results[name] = 0
+    seq_time = time.perf_counter() - start
+    print(f"\n  Time: {seq_time:.2f} seconds")
+
+    # Concurrent
+    print("\n" + "-" * 60)
+    print("CONCURRENT LOOKUP (ThreadPoolExecutor)")
+    print("-" * 60)
+
+    def lookup_one(name):
+        try:
+            facts = provider.lookup(name)
+            return name, facts.kcal_per_100g
+        except Exception:
+            return name, 0
+
+    start = time.perf_counter()
+    con_results = {}
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(lookup_one, name): name for name in TEST_INGREDIENTS}
+        for future in as_completed(futures):
+            name, kcal = future.result()
+            con_results[name] = kcal
+
+    con_time = time.perf_counter() - start
+
+    for i, name in enumerate(TEST_INGREDIENTS, 1):
+        kcal = con_results.get(name, 0)
+        print(f"  {i:2}. {name:<20} {kcal:>6.0f} kcal/100g")
+    print(f"\n  Time: {con_time:.2f} seconds")
+
+    # Summary
+    print("\n" + "=" * 60)
+    print("SUMMARY")
+    print("=" * 60)
+    print(f"  Sequential: {seq_time:.2f}s")
+    print(f"  Concurrent: {con_time:.2f}s")
+    print(f"  Speedup: {seq_time / con_time:.1f}x")
+
+    # Success rate
+    success = sum(1 for v in seq_results.values() if v > 0)
+    print(f"  Success rate: {success}/{len(TEST_INGREDIENTS)} ({success/len(TEST_INGREDIENTS)*100:.0f}%)")
+
+    print("\nBenchmark complete!\n")
 
 
 if __name__ == "__main__":
